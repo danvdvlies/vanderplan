@@ -5,45 +5,34 @@ its own commit with tests. Checked items are shipped.
 
 ## Shared refactor (prerequisite)
 
-- [ ] Extract a reusable `_transaction_row.html` (and `_transaction_table.html`)
+- [x] Extract a reusable `_transaction_row.html` (and `_transaction_table.html`)
       partial from `transaction_list.html`, so the category drill-down, the
       per-account register, and the transactions list all render rows the same
       way (and an inline "cleared" toggle lives in one place).
 
-## 1. Category-detail drill-down
+## 1. Category-detail drill-down — DONE
 
-Focused page per category (envelope).
+- [x] `category_detail/<pk>/` view (ownership-checked).
+- [x] Header: name, group, current Available, active goal + funded % bar.
+- [x] Monthly history table via `category_history()`.
+- [x] This category's transactions (shared partial), filterable by month.
+- [x] Quick actions: Budget, edit, "Add transaction" prefilled.
+- [x] Links in from `budget_month.html`, `category_list.html`, transaction rows.
+- [x] Tests.
 
-- [ ] `category_detail/<pk>/` view (ownership-checked).
-- [ ] Header: name, group, current Available, active goal + funded % bar
-      (reuse `build_category_row`).
-- [ ] Monthly history table: last N months of Assigned / Activity / Available
-      via a new `category_history(user, category, num_months)` service.
-- [ ] This category's transactions (shared row partial), filterable by month.
-- [ ] Quick actions: assign (to Budget), edit category, "Add transaction"
-      prefilled with this category.
-- [ ] Links in from `budget_month.html` and `category_list.html`.
-- [ ] Tests: history values per month, ownership 404, scoped transactions.
+## 2. CSV export / import — DONE
 
-No model changes.
+### Export
+- [x] "Export CSV" on the transactions list, respecting active filters.
+- [x] Streamed response; canonical columns; header-only blank template.
 
-## 2. CSV export / import
-
-### Export (small)
-- [ ] "Export CSV" on the transactions list, respecting active filters.
-- [ ] Streamed response; columns: date, account, payee, category, amount, memo,
-      cleared, is_income.
-
-### Import (medium)
-- [ ] Canonical Vanderplan CSV (same columns as export) so export/import
-      round-trips; downloadable template.
-- [ ] Flow: upload -> preview/validate -> commit.
-- [ ] Per-row: parse date & Decimal amount; match category by name (unmatched ->
-      Uncategorised, never auto-create); choose target account.
-- [ ] Duplicate detection on (account, date, amount, payee); user can skip.
-- [ ] Safety: file-size / row-count caps; atomic bulk insert; per-row errors.
-
-No model changes. A bank-specific column-mapping UI is a later enhancement.
+### Import
+- [x] Canonical Vanderplan CSV (round-trips with export).
+- [x] Flow: upload -> preview/validate -> commit (csv held in a hidden field).
+- [x] Per-row: parse date & Decimal amount; match category by name (unmatched ->
+      Uncategorised); choose target account.
+- [x] Duplicate detection on (account, date, amount, payee); user can skip.
+- [x] Safety: 2 MB / 5000-row caps; atomic insert; per-row error reporting.
 
 ## 3. Reconciliation / clearing balance
 

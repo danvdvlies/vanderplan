@@ -3,6 +3,8 @@
 {% block title %}Transactions{% endblock %}
 {% block heading %}Transactions{% endblock %}
 {% block actions %}
+  <a class="btn btn-outline-secondary btn-sm" href="{% url 'transaction_export' %}?{{ request.GET.urlencode }}"><i class="bi bi-download"></i> Export CSV</a>
+  <a class="btn btn-outline-primary btn-sm" href="{% url 'transaction_import' %}"><i class="bi bi-upload"></i> Import CSV</a>
   <a class="btn btn-success btn-sm" href="{% url 'income_create' %}"><i class="bi bi-plus-circle"></i> Add income</a>
   <a class="btn btn-primary btn-sm" href="{% url 'transaction_create' %}"><i class="bi bi-plus-lg"></i> Add transaction</a>
 {% endblock %}

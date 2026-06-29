@@ -29,6 +29,8 @@ urlpatterns = [
     ),
     # Transactions
     path("transactions/", views.transaction_list, name="transaction_list"),
+    path("transactions/export/", views.transaction_export, name="transaction_export"),
+    path("transactions/import/", views.transaction_import, name="transaction_import"),
     path("transactions/new/", views.transaction_create, name="transaction_create"),
     path("income/new/", views.income_create, name="income_create"),
     path("transactions/<int:pk>/edit/", views.transaction_edit, name="transaction_edit"),

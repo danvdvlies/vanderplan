@@ -118,6 +118,28 @@ class IncomeForm(BootstrapModelForm):
         return amount
 
 
+class CsvImportForm(forms.Form):
+    account = forms.ModelChoiceField(
+        queryset=Account.objects.none(),
+        help_text="Imported transactions are attached to this account.",
+    )
+    csv_file = forms.FileField(label="CSV file")
+    skip_duplicates = forms.BooleanField(
+        required=False, initial=True,
+        help_text="Skip rows matching an existing date + amount + payee on this account.",
+    )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is not None:
+            self.fields["account"].queryset = Account.objects.filter(
+                user=user, is_active=True
+            )
+        self.fields["account"].widget.attrs.setdefault("class", "form-select")
+        self.fields["csv_file"].widget.attrs.setdefault("class", "form-control")
+        self.fields["skip_duplicates"].widget.attrs.setdefault("class", "form-check-input")
+
+
 class GoalForm(BootstrapModelForm):
     class Meta:
         model = Goal

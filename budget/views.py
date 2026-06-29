@@ -6,6 +6,7 @@ Every view is login-required. Every object lookup is scoped with
 another user's data.
 """
 
+import csv
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
@@ -13,14 +14,17 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
+from django.db import transaction as db_transaction
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
-from . import services, starter
+from . import csv_io, services, starter
 from .forms import (
     AccountForm,
     CategoryForm,
     CategoryGroupForm,
+    CsvImportForm,
     GoalForm,
     IncomeForm,
     RegisterForm,
@@ -34,6 +38,10 @@ from .models import (
     Goal,
     Transaction,
 )
+
+
+# Canonical Vanderplan CSV column order (export writes it; import reads it).
+CSV_COLUMNS = ["date", "account", "payee", "category", "amount", "memo", "cleared", "is_income"]
 
 
 # --------------------------------------------------------------------------
@@ -436,12 +444,11 @@ def category_toggle_hidden(request, pk):
 # --------------------------------------------------------------------------
 # Transactions
 # --------------------------------------------------------------------------
-@login_required
-def transaction_list(request):
+def _filtered_transactions(request):
+    """Shared transaction filtering for the list and the CSV export."""
     transactions = Transaction.objects.filter(user=request.user).select_related(
         "account", "category"
     )
-
     account_id = request.GET.get("account")
     category_id = request.GET.get("category")
     month = request.GET.get("month")
@@ -463,8 +470,21 @@ def transaction_list(request):
                 date__gte=start, date__lt=services.next_month_start(start)
             )
         except ValueError:
-            pass
+            month = None
 
+    filters = {
+        "account": account_id,
+        "category": category_id,
+        "month": month,
+        "uncategorised": uncategorised,
+        "income": income_only,
+    }
+    return transactions, filters
+
+
+@login_required
+def transaction_list(request):
+    transactions, filters = _filtered_transactions(request)
     return render(
         request,
         "budget/transaction_list.html",
@@ -472,15 +492,110 @@ def transaction_list(request):
             "transactions": transactions[:300],
             "accounts": Account.objects.filter(user=request.user),
             "categories": Category.objects.filter(user=request.user, is_active=True),
-            "filters": {
-                "account": account_id,
-                "category": category_id,
-                "month": month,
-                "uncategorised": uncategorised,
-                "income": income_only,
-            },
+            "filters": filters,
         },
     )
+
+
+@login_required
+def transaction_export(request):
+    """Stream the filtered transactions as the canonical Vanderplan CSV."""
+    transactions, _ = _filtered_transactions(request)
+
+    response = HttpResponse(content_type="text/csv")
+    response["Content-Disposition"] = (
+        f'attachment; filename="transactions-{date.today():%Y%m%d}.csv"'
+    )
+    writer = csv.writer(response)
+    writer.writerow(CSV_COLUMNS)
+    if request.GET.get("template"):
+        return response  # header-only blank template
+    for txn in transactions.iterator():
+        writer.writerow(
+            [
+                txn.date.isoformat(),
+                txn.account.name,
+                txn.payee,
+                txn.category.name if txn.category else "",
+                f"{txn.amount:.2f}",
+                txn.memo,
+                "1" if txn.cleared else "0",
+                "1" if txn.is_income else "0",
+            ]
+        )
+    return response
+
+
+@login_required
+def transaction_import(request):
+    """Import transactions from a CSV: upload -> preview -> commit."""
+    MAX_BYTES = 2 * 1024 * 1024
+    MAX_ROWS = 5000
+
+    # Step 3: the user confirmed the previewed import.
+    if request.method == "POST" and request.POST.get("confirm"):
+        account = _owned(Account, request, pk=request.POST.get("account"))
+        skip_duplicates = request.POST.get("skip_duplicates") == "1"
+        text = request.POST.get("csv_text", "")
+        rows = csv_io.analyze_csv(text, request.user, account)
+        created = skipped = 0
+        with db_transaction.atomic():
+            for row in rows:
+                if row["status"] != "ok":
+                    continue
+                if row["duplicate"] and skip_duplicates:
+                    skipped += 1
+                    continue
+                Transaction.objects.create(
+                    user=request.user, account=account, date=row["date"],
+                    amount=row["amount"], payee=row["payee"], memo=row["memo"],
+                    category=row["category"], cleared=row["cleared"],
+                    is_income=row["is_income"],
+                )
+                created += 1
+        msg = f"Imported {created} transaction{'' if created == 1 else 's'}."
+        if skipped:
+            msg += f" Skipped {skipped} duplicate{'' if skipped == 1 else 's'}."
+        messages.success(request, msg)
+        return redirect("transaction_list")
+
+    # Step 2: a file was uploaded -> parse and show a preview.
+    form = CsvImportForm(request.POST or None, request.FILES or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        upload = form.cleaned_data["csv_file"]
+        if upload.size > MAX_BYTES:
+            messages.error(request, "File too large (max 2 MB).")
+            return redirect("transaction_import")
+        text = upload.read().decode("utf-8-sig", errors="replace")
+        account = form.cleaned_data["account"]
+        rows = csv_io.analyze_csv(text, request.user, account)
+        if len(rows) > MAX_ROWS:
+            messages.error(request, f"Too many rows (max {MAX_ROWS}).")
+            return redirect("transaction_import")
+        summary = {
+            "importable": sum(1 for r in rows if r["status"] == "ok" and not r["duplicate"]),
+            "duplicate": sum(1 for r in rows if r["duplicate"]),
+            "error": sum(1 for r in rows if r["status"] == "error"),
+            "unmatched": sum(
+                1 for r in rows
+                if r["status"] == "ok" and r["category_name"] and not r["category_matched"]
+            ),
+        }
+        return render(
+            request,
+            "budget/transaction_import.html",
+            {
+                "preview": True,
+                "rows": rows,
+                "summary": summary,
+                "csv_text": text,
+                "account": account,
+                "skip_duplicates": form.cleaned_data["skip_duplicates"],
+            },
+        )
+
+    # Step 1: show the upload form.
+    return render(request, "budget/transaction_import.html", {"form": form})
 
 
 @login_required

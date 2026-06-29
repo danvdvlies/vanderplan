@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Import CSV{% endblock %}
+{% block heading %}Import transactions{% endblock %}
+
+{% block content %}
+{% if preview %}
+  <div class="card mb-3"><div class="card-body">
+    <h2 class="h5 mb-3">Preview</h2>
+    <div class="d-flex gap-2 flex-wrap mb-3">
+      <span class="badge bg-success">{{ summary.importable }} ready</span>
+      <span class="badge bg-warning text-dark">{{ summary.duplicate }} duplicate{{ summary.duplicate|pluralize }}</span>
+      <span class="badge bg-danger">{{ summary.error }} error{{ summary.error|pluralize }}</span>
+      <span class="badge bg-secondary">{{ summary.unmatched }} unmatched categor{{ summary.unmatched|pluralize:"y,ies" }} → Uncategorised</span>
+      <span class="ms-auto text-muted small">Account: <strong>{{ account.name }}</strong></span>
+    </div>
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Line</th><th>Date</th><th>Payee</th><th>Category</th><th class="text-end">Amount</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr class="{% if row.status == 'error' %}table-danger{% elif row.duplicate %}table-warning{% endif %}">
+          <td>{{ row.line }}</td>
+          <td>{{ row.date|date:"d M Y"|default:"—" }}</td>
+          <td>{{ row.payee|default:"—" }}</td>
+          <td>
+            {% if row.is_income %}<span class="badge bg-success">Income</span>
+            {% elif row.category %}{{ row.category.name }}
+            {% elif row.category_name %}<span class="text-muted">{{ row.category_name }} → Uncategorised</span>
+            {% else %}<span class="text-muted">Uncategorised</span>{% endif %}
+          </td>
+          <td class="text-end {% if row.amount and row.amount < 0 %}money-neg{% elif row.amount %}money-pos{% endif %}">
+            {% if row.amount is not None %}${{ row.amount|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+          <td>
+            {% if row.status == 'error' %}<span class="text-danger small">{{ row.error }}</span>
+            {% elif row.duplicate %}<span class="text-warning">Duplicate</span>
+            {% else %}<i class="bi bi-check-circle-fill text-success"></i>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div></div>
+
+  <form method="post" action="{% url 'transaction_import' %}">
+    {% csrf_token %}
+    <input type="hidden" name="confirm" value="1">
+    <input type="hidden" name="account" value="{{ account.pk }}">
+    <input type="hidden" name="skip_duplicates" value="{% if skip_duplicates %}1{% else %}0{% endif %}">
+    <textarea name="csv_text" class="d-none">{{ csv_text }}</textarea>
+    <button type="submit" class="btn btn-primary">
+      Import {{ summary.importable }} transaction{{ summary.importable|pluralize }}
+      {% if skip_duplicates and summary.duplicate %}(skipping {{ summary.duplicate }} duplicate{{ summary.duplicate|pluralize }}){% endif %}
+    </button>
+    <a href="{% url 'transaction_import' %}" class="btn btn-outline-secondary">Cancel</a>
+  </form>
+
+{% else %}
+  <div class="card"><div class="card-body">
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+      {% for field in form %}
+        <div class="mb-3 {% if field.name == 'skip_duplicates' %}form-check{% endif %}">
+          {% if field.name == 'skip_duplicates' %}
+            {{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {% else %}
+            <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+          {% endif %}
+          {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+          {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-primary">Upload &amp; preview</button>
+      <a href="{% url 'transaction_list' %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+    <hr>
+    <p class="text-muted small mb-1">Expected columns (a header row is required):</p>
+    <code class="small">date, account, payee, category, amount, memo, cleared, is_income</code>
+    <p class="text-muted small mt-2 mb-0">
+      Expenses are negative, income positive. Unknown categories import as
+      Uncategorised. <a href="{% url 'transaction_export' %}?template=1">Download a blank template</a>.
+    </p>
+  </div></div>
+{% endif %}
+{% endblock %}
