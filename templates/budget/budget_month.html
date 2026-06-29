@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize budget_extras %}
 {% block title %}Budget{% endblock %}
 {% block heading %}Budget{% endblock %}
 {% block actions %}
@@ -16,17 +16,17 @@
       {% elif to_be_assigned > 0 %}<span class="text-success">· assign it a job</span>{% endif %}
     </div>
     <div class="h4 mb-0 {% if to_be_assigned < 0 %}money-neg{% elif to_be_assigned > 0 %}money-pos{% endif %}">
-      ${{ to_be_assigned|floatformat:2|intcomma }}</div>
+      {{ to_be_assigned|money }}</div>
   </div>
   <div class="text-end">
     <div class="d-flex align-items-center gap-3">
       <div>
         <div class="text-muted small">Income this month</div>
-        <div class="h5 mb-0 money-pos">${{ income_this_month|floatformat:2|intcomma }}</div>
+        <div class="h5 mb-0 money-pos">{{ income_this_month|money }}</div>
       </div>
       <div>
         <div class="text-muted small">Total cash</div>
-        <div class="h5 mb-0">${{ total_cash|floatformat:2|intcomma }}</div>
+        <div class="h5 mb-0">{{ total_cash|money }}</div>
       </div>
       <a class="btn btn-success btn-sm" href="{% url 'income_create' %}"><i class="bi bi-plus-circle"></i> Add income</a>
       <form method="post" action="{% url 'budget_fund_all' %}?month={{ month_param }}">
@@ -58,7 +58,7 @@
       <tr>
         <td><a href="{% url 'category_detail' row.category.pk %}">{{ row.category.name }}</a></td>
         <td class="text-end {% if row.available < 0 %}money-neg{% elif row.available > 0 %}money-pos{% endif %}">
-          ${{ row.available|floatformat:2|intcomma }}
+          {{ row.available|money }}
           <button type="button" class="btn btn-link btn-sm p-0 ms-1 text-secondary"
                   data-bs-toggle="modal" data-bs-target="#moveModal"
                   data-category="{{ row.category.pk }}" data-name="{{ row.category.name }}"
@@ -74,16 +74,16 @@
             <button class="btn btn-sm btn-outline-primary ms-1" type="submit" title="Save"><i class="bi bi-check-lg"></i></button>
           </form>
         </td>
-        <td class="text-end {% if row.activity < 0 %}money-neg{% endif %}">${{ row.activity|floatformat:2|intcomma }}</td>
+        <td class="text-end {% if row.activity < 0 %}money-neg{% endif %}">{{ row.activity|money }}</td>
         <td class="text-end" style="white-space:nowrap;">
           {% if row.goal %}
-            ${{ row.needed_this_month|floatformat:2|intcomma }}
+            {{ row.needed_this_month|money }}
             {% if row.needed_this_month > 0 %}
             <form method="post" action="{% url 'budget_fund' %}?month={{ month_param }}" class="d-inline">
               {% csrf_token %}
               <input type="hidden" name="category" value="{{ row.category.pk }}">
               <button class="btn btn-success btn-sm py-0 px-1 ms-1" type="submit"
-                      title="Assign the ${{ row.needed_this_month|floatformat:2 }} still needed">Fund</button>
+                      title="Assign the {{ row.needed_this_month|money }} still needed">Fund</button>
             </form>
             {% endif %}
           {% else %}—{% endif %}

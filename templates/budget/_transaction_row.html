@@ -1,11 +1,11 @@
-{% load humanize %}
+{% load humanize budget_extras %}
 {# Params: txn, hide_account, clearable (inline cleared toggle + reconciled lock) #}
 <tr>
   <td>{{ txn.date|date:"d M Y" }}</td>
   <td>{{ txn.payee|default:"—" }}{% if txn.memo %}<br><small class="text-muted">{{ txn.memo }}</small>{% endif %}</td>
   <td>{% if txn.is_income %}<span class="badge bg-success">Income</span>{% elif txn.category %}<a href="{% url 'category_detail' txn.category.pk %}">{{ txn.category.name }}</a>{% else %}<span class="badge bg-secondary">Uncategorised</span>{% endif %}</td>
   {% if not hide_account %}<td>{{ txn.account.name }}</td>{% endif %}
-  <td class="text-end {% if txn.amount < 0 %}money-neg{% else %}money-pos{% endif %}">${{ txn.amount|floatformat:2|intcomma }}</td>
+  <td class="text-end {% if txn.amount < 0 %}money-neg{% else %}money-pos{% endif %}">{{ txn.amount|money }}</td>
   <td>
     {% if clearable %}
       <form method="post" action="{% url 'transaction_toggle_cleared' txn.pk %}" class="d-inline">

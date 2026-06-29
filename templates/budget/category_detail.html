@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize budget_extras %}
 {% block title %}{{ category.name }}{% endblock %}
 {% block heading %}{{ category.name }}{% endblock %}
 {% block actions %}
@@ -15,7 +15,7 @@
       <div class="text-muted small">{{ category.category_group.name }}</div>
       <div class="text-muted small">Available now</div>
       <div class="stat-value {% if row.available < 0 %}money-neg{% elif row.available > 0 %}money-pos{% endif %}">
-        ${{ row.available|floatformat:2|intcomma }}</div>
+        {{ row.available|money }}</div>
     </div></div>
   </div>
   <div class="col-md-8">
@@ -24,12 +24,12 @@
       <div class="d-flex justify-content-between">
         <div>
           <div class="text-muted small">Goal target</div>
-          <div class="h5 mb-0">${{ row.target|floatformat:2|intcomma }}
+          <div class="h5 mb-0">{{ row.target|money }}
             {% if row.goal.due_date %}<small class="text-muted">· due {{ row.goal.due_date|date:"d M Y" }}</small>{% endif %}</div>
         </div>
         <div class="text-end">
           <div class="text-muted small">Needed this month</div>
-          <div class="h5 mb-0">${{ row.needed_this_month|floatformat:2|intcomma }}</div>
+          <div class="h5 mb-0">{{ row.needed_this_month|money }}</div>
         </div>
       </div>
       <div class="progress mt-3" style="height:20px;">
@@ -53,9 +53,9 @@
     {% for h in history %}
       <tr>
         <td>{{ h.month|date:"M Y" }}</td>
-        <td class="text-end">${{ h.assigned|floatformat:2|intcomma }}</td>
-        <td class="text-end {% if h.activity < 0 %}money-neg{% endif %}">${{ h.activity|floatformat:2|intcomma }}</td>
-        <td class="text-end {% if h.available < 0 %}money-neg{% elif h.available > 0 %}money-pos{% endif %}">${{ h.available|floatformat:2|intcomma }}</td>
+        <td class="text-end">{{ h.assigned|money }}</td>
+        <td class="text-end {% if h.activity < 0 %}money-neg{% endif %}">{{ h.activity|money }}</td>
+        <td class="text-end {% if h.available < 0 %}money-neg{% elif h.available > 0 %}money-pos{% endif %}">{{ h.available|money }}</td>
       </tr>
     {% endfor %}
     </tbody>

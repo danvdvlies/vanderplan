@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize budget_extras %}
 {% block title %}Import CSV{% endblock %}
 {% block heading %}Import transactions{% endblock %}
 
@@ -29,7 +29,7 @@
             {% else %}<span class="text-muted">Uncategorised</span>{% endif %}
           </td>
           <td class="text-end {% if row.amount and row.amount < 0 %}money-neg{% elif row.amount %}money-pos{% endif %}">
-            {% if row.amount is not None %}${{ row.amount|floatformat:2|intcomma }}{% else %}—{% endif %}</td>
+            {% if row.amount is not None %}{{ row.amount|money }}{% else %}—{% endif %}</td>
           <td>
             {% if row.status == 'error' %}<span class="text-danger small">{{ row.error }}</span>
             {% elif row.duplicate %}<span class="text-warning">Duplicate</span>

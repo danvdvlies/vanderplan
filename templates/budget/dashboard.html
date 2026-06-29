@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize budget_extras %}
 {% block title %}Dashboard{% endblock %}
 {% block heading %}Dashboard{% endblock %}
 {% block actions %}
@@ -15,7 +15,7 @@
     <div class="card stat-card h-100"><div class="card-body">
       <div class="d-flex justify-content-between">
         <div><div class="text-muted small">Total cash available</div>
-          <div class="stat-value">${{ total_cash|floatformat:2|intcomma }}</div></div>
+          <div class="stat-value">{{ total_cash|money }}</div></div>
         <i class="bi bi-wallet2 stat-icon"></i>
       </div></div></div>
   </div>
@@ -23,7 +23,7 @@
     <div class="card stat-card h-100"><div class="card-body">
       <div class="d-flex justify-content-between">
         <div><div class="text-muted small">Income this month</div>
-          <div class="stat-value money-pos">${{ income_this_month|floatformat:2|intcomma }}</div></div>
+          <div class="stat-value money-pos">{{ income_this_month|money }}</div></div>
         <i class="bi bi-arrow-down-circle stat-icon"></i>
       </div></div></div>
   </div>
@@ -31,7 +31,7 @@
     <div class="card stat-card h-100"><div class="card-body">
       <div class="d-flex justify-content-between">
         <div><div class="text-muted small">Assigned this month</div>
-          <div class="stat-value">${{ assigned_this_month|floatformat:2|intcomma }}</div></div>
+          <div class="stat-value">{{ assigned_this_month|money }}</div></div>
         <i class="bi bi-pin-map stat-icon"></i>
       </div></div></div>
   </div>
@@ -40,7 +40,7 @@
       <div class="d-flex justify-content-between">
         <div><div class="text-muted small">Ready to assign</div>
           <div class="stat-value {% if to_be_assigned < 0 %}money-neg{% elif to_be_assigned > 0 %}money-pos{% endif %}">
-            ${{ to_be_assigned|floatformat:2|intcomma }}</div></div>
+            {{ to_be_assigned|money }}</div></div>
         <i class="bi bi-cash-coin stat-icon"></i>
       </div></div></div>
   </div>
@@ -48,7 +48,7 @@
     <div class="card stat-card h-100"><div class="card-body">
       <div class="d-flex justify-content-between">
         <div><div class="text-muted small">Bills due this month</div>
-          <div class="stat-value">${{ bills_due_total|floatformat:2|intcomma }}</div>
+          <div class="stat-value">{{ bills_due_total|money }}</div>
           <div class="small text-muted">{{ bills_due_count }} categor{{ bills_due_count|pluralize:"y,ies" }}</div></div>
         <i class="bi bi-calendar-event stat-icon"></i>
       </div></div></div>
@@ -75,8 +75,8 @@
         {% for row in attention_rows %}
           <tr>
             <td>{{ row.category.name }}</td>
-            <td class="text-end {% if row.available < 0 %}money-neg{% endif %}">${{ row.available|floatformat:2|intcomma }}</td>
-            <td class="text-end">${{ row.needed_this_month|floatformat:2|intcomma }}</td>
+            <td class="text-end {% if row.available < 0 %}money-neg{% endif %}">{{ row.available|money }}</td>
+            <td class="text-end">{{ row.needed_this_month|money }}</td>
             <td>{% include "budget/_status_badge.html" with status=row.status %}</td>
           </tr>
         {% endfor %}
@@ -94,7 +94,7 @@
       {% for goal in upcoming_goals %}
         <div class="d-flex justify-content-between py-1">
           <span>{{ goal.category.name }}</span>
-          <span class="text-muted">{{ goal.due_date|date:"d M Y" }} · ${{ goal.target_amount|floatformat:2|intcomma }}</span>
+          <span class="text-muted">{{ goal.due_date|date:"d M Y" }} · {{ goal.target_amount|money }}</span>
         </div>
       {% empty %}
         <p class="text-muted mb-0">No dated goals yet.</p>
@@ -106,7 +106,7 @@
       {% for txn in recent_transactions %}
         <div class="d-flex justify-content-between py-1">
           <span>{{ txn.payee|default:"(no payee)" }}<br><small class="text-muted">{{ txn.date|date:"d M" }} · {{ txn.category.name|default:"Uncategorised" }}</small></span>
-          <span class="{% if txn.amount < 0 %}money-neg{% else %}money-pos{% endif %}">${{ txn.amount|floatformat:2|intcomma }}</span>
+          <span class="{% if txn.amount < 0 %}money-neg{% else %}money-pos{% endif %}">{{ txn.amount|money }}</span>
         </div>
       {% empty %}
         <p class="text-muted mb-0">No transactions yet.</p>

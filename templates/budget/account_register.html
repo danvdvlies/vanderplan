@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize budget_extras %}
 {% block title %}{{ account.name }}{% endblock %}
 {% block heading %}{{ account.name }}{% endblock %}
 {% block actions %}
@@ -12,19 +12,19 @@
   <div class="col-md-4">
     <div class="card stat-card h-100"><div class="card-body">
       <div class="text-muted small">Cleared balance</div>
-      <div class="stat-value {% if balances.cleared < 0 %}money-neg{% endif %}">${{ balances.cleared|floatformat:2|intcomma }}</div>
+      <div class="stat-value {% if balances.cleared < 0 %}money-neg{% endif %}">{{ balances.cleared|money }}</div>
     </div></div>
   </div>
   <div class="col-md-4">
     <div class="card stat-card h-100"><div class="card-body">
       <div class="text-muted small">Uncleared</div>
-      <div class="stat-value">${{ balances.uncleared|floatformat:2|intcomma }}</div>
+      <div class="stat-value">{{ balances.uncleared|money }}</div>
     </div></div>
   </div>
   <div class="col-md-4">
     <div class="card stat-card h-100"><div class="card-body">
       <div class="text-muted small">Working balance</div>
-      <div class="stat-value {% if balances.working < 0 %}money-neg{% endif %}">${{ balances.working|floatformat:2|intcomma }}</div>
+      <div class="stat-value {% if balances.working < 0 %}money-neg{% endif %}">{{ balances.working|money }}</div>
     </div></div>
   </div>
 </div>

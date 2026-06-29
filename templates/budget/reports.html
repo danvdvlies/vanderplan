@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize budget_extras %}
 {% block title %}Reports{% endblock %}
 {% block heading %}Reports{% endblock %}
 {% block actions %}
@@ -13,19 +13,19 @@
   <div class="col-md-4">
     <div class="card stat-card h-100"><div class="card-body">
       <div class="text-muted small">Income ({{ month_start|date:"M Y" }})</div>
-      <div class="stat-value money-pos">${{ income_this_month|floatformat:2|intcomma }}</div>
+      <div class="stat-value money-pos">{{ income_this_month|money }}</div>
     </div></div>
   </div>
   <div class="col-md-4">
     <div class="card stat-card h-100"><div class="card-body">
       <div class="text-muted small">Spending ({{ month_start|date:"M Y" }})</div>
-      <div class="stat-value money-neg">${{ spending_this_month|floatformat:2|intcomma }}</div>
+      <div class="stat-value money-neg">{{ spending_this_month|money }}</div>
     </div></div>
   </div>
   <div class="col-md-4">
     <div class="card stat-card h-100"><div class="card-body">
       <div class="text-muted small">Net worth (current)</div>
-      <div class="stat-value {% if current_net_worth < 0 %}money-neg{% endif %}">${{ current_net_worth|floatformat:2|intcomma }}</div>
+      <div class="stat-value {% if current_net_worth < 0 %}money-neg{% endif %}">{{ current_net_worth|money }}</div>
     </div></div>
   </div>
 </div>
@@ -45,11 +45,11 @@
                 <div class="progress-bar bg-primary" style="width: {{ row.percent }}%;">{{ row.percent }}%</div>
               </div>
             </td>
-            <td class="text-end" style="width:22%;">${{ row.spent|floatformat:2|intcomma }}</td>
+            <td class="text-end" style="width:22%;">{{ row.spent|money }}</td>
           </tr>
         {% endfor %}
         </tbody>
-        <tfoot><tr class="fw-semibold"><td>Total</td><td></td><td class="text-end">${{ spending.total|floatformat:2|intcomma }}</td></tr></tfoot>
+        <tfoot><tr class="fw-semibold"><td>Total</td><td></td><td class="text-end">{{ spending.total|money }}</td></tr></tfoot>
       </table>
       {% else %}
         <p class="text-muted mb-0">No spending recorded this month.</p>
@@ -67,16 +67,16 @@
           <tr>
             <td>{{ t.month|date:"M Y" }}</td>
             <td>
-              <div class="d-flex align-items-center gap-1" title="Income ${{ t.income|floatformat:2 }}">
+              <div class="d-flex align-items-center gap-1" title="Income {{ t.income|money }}">
                 <i class="bi bi-arrow-up text-success small"></i>
                 <div class="progress flex-grow-1" style="height:9px;"><div class="progress-bar bg-success" style="width: {{ t.income_w }}%;"></div></div>
               </div>
-              <div class="d-flex align-items-center gap-1 mt-1" title="Spending ${{ t.spending|floatformat:2 }}">
+              <div class="d-flex align-items-center gap-1 mt-1" title="Spending {{ t.spending|money }}">
                 <i class="bi bi-arrow-down text-danger small"></i>
                 <div class="progress flex-grow-1" style="height:9px;"><div class="progress-bar bg-danger" style="width: {{ t.spending_w }}%;"></div></div>
               </div>
             </td>
-            <td class="text-end {% if t.net < 0 %}money-neg{% else %}money-pos{% endif %}">${{ t.net|floatformat:2|intcomma }}</td>
+            <td class="text-end {% if t.net < 0 %}money-neg{% else %}money-pos{% endif %}">{{ t.net|money }}</td>
           </tr>
         {% endfor %}
         </tbody>
@@ -97,7 +97,7 @@
                 <div class="progress-bar {% if n.negative %}bg-danger{% else %}bg-info{% endif %}" style="width: {{ n.width }}%;"></div>
               </div>
             </td>
-            <td class="text-end {% if n.negative %}money-neg{% endif %}" style="width:18%;">${{ n.net_worth|floatformat:2|intcomma }}</td>
+            <td class="text-end {% if n.negative %}money-neg{% endif %}" style="width:18%;">{{ n.net_worth|money }}</td>
           </tr>
         {% endfor %}
         </tbody>

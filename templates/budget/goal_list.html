@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize budget_extras %}
 {% block title %}Goals{% endblock %}
 {% block heading %}Goals{% endblock %}
 {% block actions %}<a class="btn btn-primary btn-sm" href="{% url 'goal_create' %}"><i class="bi bi-plus-lg"></i> New goal</a>{% endblock %}
@@ -19,9 +19,9 @@
           {% if not row.goal.is_active %}<span class="badge bg-secondary">Inactive</span>{% endif %}</td>
         <td>{{ row.goal.due_date|date:"d M Y"|default:"—" }}</td>
         <td>{% if row.goal.repeat_interval_months %}every {{ row.goal.repeat_interval_months }} mo{% else %}—{% endif %}</td>
-        <td class="text-end">${{ row.goal.target_amount|floatformat:2|intcomma }}</td>
-        <td class="text-end {% if row.available < 0 %}money-neg{% endif %}">${{ row.available|floatformat:2|intcomma }}</td>
-        <td class="text-end">${{ row.needed_this_month|floatformat:2|intcomma }}</td>
+        <td class="text-end">{{ row.goal.target_amount|money }}</td>
+        <td class="text-end {% if row.available < 0 %}money-neg{% endif %}">{{ row.available|money }}</td>
+        <td class="text-end">{{ row.needed_this_month|money }}</td>
         <td>
           <div class="progress" style="height:18px;">
             <div class="progress-bar {% if row.funded_percent >= 100 %}bg-success{% else %}bg-info{% endif %}"
