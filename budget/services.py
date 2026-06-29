@@ -257,6 +257,23 @@ def build_category_row(user, category, month_start: date) -> dict:
     }
 
 
+def category_history(user, category, num_months: int = 6) -> list[dict]:
+    """Assigned / activity / available for a category over recent months."""
+    base = month_floor(date.today())
+    out = []
+    for i in range(num_months - 1, -1, -1):
+        m = add_months(base, -i)
+        out.append(
+            {
+                "month": m,
+                "assigned": category_assigned(user, category, m),
+                "activity": category_activity(user, category, m),
+                "available": category_available(user, category, m),
+            }
+        )
+    return out
+
+
 def fund_category(user, category, month_start: date) -> Decimal:
     """Assign whatever is still needed this month to reach the category's goal.
 

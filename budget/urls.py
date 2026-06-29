@@ -17,6 +17,7 @@ urlpatterns = [
     path("accounts/<int:pk>/archive/", views.account_archive, name="account_archive"),
     # Category groups & categories
     path("categories/", views.category_list, name="category_list"),
+    path("categories/<int:pk>/", views.category_detail, name="category_detail"),
     path("groups/new/", views.group_create, name="group_create"),
     path("groups/<int:pk>/edit/", views.group_edit, name="group_edit"),
     path("categories/new/", views.category_create, name="category_create"),

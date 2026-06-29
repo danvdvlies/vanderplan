@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}{{ category.name }}{% endblock %}
+{% block heading %}{{ category.name }}{% endblock %}
+{% block actions %}
+  <a class="btn btn-outline-secondary btn-sm" href="{% url 'category_edit' category.pk %}"><i class="bi bi-pencil"></i> Edit</a>
+  <a class="btn btn-outline-primary btn-sm" href="{% url 'budget_month' %}"><i class="bi bi-table"></i> Budget</a>
+  <a class="btn btn-primary btn-sm" href="{% url 'transaction_create' %}?category={{ category.pk }}"><i class="bi bi-plus-lg"></i> Add transaction</a>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-2">
+  <div class="col-md-4">
+    <div class="card stat-card h-100"><div class="card-body">
+      <div class="text-muted small">{{ category.category_group.name }}</div>
+      <div class="text-muted small">Available now</div>
+      <div class="stat-value {% if row.available < 0 %}money-neg{% elif row.available > 0 %}money-pos{% endif %}">
+        ${{ row.available|floatformat:2|intcomma }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-8">
+    <div class="card h-100"><div class="card-body">
+      {% if row.goal %}
+      <div class="d-flex justify-content-between">
+        <div>
+          <div class="text-muted small">Goal target</div>
+          <div class="h5 mb-0">${{ row.target|floatformat:2|intcomma }}
+            {% if row.goal.due_date %}<small class="text-muted">· due {{ row.goal.due_date|date:"d M Y" }}</small>{% endif %}</div>
+        </div>
+        <div class="text-end">
+          <div class="text-muted small">Needed this month</div>
+          <div class="h5 mb-0">${{ row.needed_this_month|floatformat:2|intcomma }}</div>
+        </div>
+      </div>
+      <div class="progress mt-3" style="height:20px;">
+        <div class="progress-bar {% if row.funded_percent >= 100 %}bg-success{% else %}bg-info{% endif %}"
+             style="width: {{ row.funded_percent_bar }}%;">{{ row.funded_percent }}%</div>
+      </div>
+      <div class="mt-2">{% include "budget/_status_badge.html" with status=row.status %}</div>
+      {% else %}
+      <p class="text-muted mb-0">No goal set for this category.
+        <a href="{% url 'goal_create' %}">Create one</a> to track funding.</p>
+      {% endif %}
+    </div></div>
+  </div>
+</div>
+
+<div class="card mb-3"><div class="card-body">
+  <h2 class="h5 mb-3">Monthly history</h2>
+  <table class="table table-sm align-middle mb-0">
+    <thead><tr><th>Month</th><th class="text-end">Assigned</th><th class="text-end">Activity</th><th class="text-end">Available</th></tr></thead>
+    <tbody>
+    {% for h in history %}
+      <tr>
+        <td>{{ h.month|date:"M Y" }}</td>
+        <td class="text-end">${{ h.assigned|floatformat:2|intcomma }}</td>
+        <td class="text-end {% if h.activity < 0 %}money-neg{% endif %}">${{ h.activity|floatformat:2|intcomma }}</td>
+        <td class="text-end {% if h.available < 0 %}money-neg{% elif h.available > 0 %}money-pos{% endif %}">${{ h.available|floatformat:2|intcomma }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+<div class="card"><div class="card-body">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="h5 mb-0">Transactions</h2>
+    <form method="get" class="d-flex gap-2">
+      <input type="month" name="month" value="{{ month_filter }}" class="form-control form-control-sm">
+      <button class="btn btn-sm btn-primary" type="submit">Filter</button>
+      {% if month_filter %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'category_detail' category.pk %}">Clear</a>{% endif %}
+    </form>
+  </div>
+  {% include "budget/_transaction_table.html" with transactions=transactions empty_message="No transactions in this category yet." %}
+</div></div>
+{% endblock %}

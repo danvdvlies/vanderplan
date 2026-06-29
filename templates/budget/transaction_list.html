@@ -46,26 +46,6 @@
 </div></div>
 
 <div class="card"><div class="card-body">
-  <div class="table-responsive"><table class="table table-sm align-middle mb-0">
-    <thead><tr><th>Date</th><th>Payee</th><th>Category</th><th>Account</th><th class="text-end">Amount</th><th>Cleared</th><th></th></tr></thead>
-    <tbody>
-    {% for txn in transactions %}
-      <tr>
-        <td>{{ txn.date|date:"d M Y" }}</td>
-        <td>{{ txn.payee|default:"—" }}{% if txn.memo %}<br><small class="text-muted">{{ txn.memo }}</small>{% endif %}</td>
-        <td>{% if txn.is_income %}<span class="badge bg-success">Income</span>{% elif txn.category %}{{ txn.category.name }}{% else %}<span class="badge bg-secondary">Uncategorised</span>{% endif %}</td>
-        <td>{{ txn.account.name }}</td>
-        <td class="text-end {% if txn.amount < 0 %}money-neg{% else %}money-pos{% endif %}">${{ txn.amount|floatformat:2|intcomma }}</td>
-        <td>{% if txn.cleared %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td>
-        <td class="text-end">
-          <a class="btn btn-sm btn-outline-secondary" href="{% url 'transaction_edit' txn.pk %}"><i class="bi bi-pencil"></i></a>
-          <a class="btn btn-sm btn-outline-danger" href="{% url 'transaction_delete' txn.pk %}"><i class="bi bi-trash"></i></a>
-        </td>
-      </tr>
-    {% empty %}
-      <tr><td colspan="7" class="text-center text-muted">No transactions match.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table></div>
+  {% include "budget/_transaction_table.html" with transactions=transactions %}
 </div></div>
 {% endblock %}

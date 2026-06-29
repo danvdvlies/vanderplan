@@ -1,0 +1,13 @@
+{% load humanize %}
+<tr>
+  <td>{{ txn.date|date:"d M Y" }}</td>
+  <td>{{ txn.payee|default:"—" }}{% if txn.memo %}<br><small class="text-muted">{{ txn.memo }}</small>{% endif %}</td>
+  <td>{% if txn.is_income %}<span class="badge bg-success">Income</span>{% elif txn.category %}<a href="{% url 'category_detail' txn.category.pk %}">{{ txn.category.name }}</a>{% else %}<span class="badge bg-secondary">Uncategorised</span>{% endif %}</td>
+  {% if not hide_account %}<td>{{ txn.account.name }}</td>{% endif %}
+  <td class="text-end {% if txn.amount < 0 %}money-neg{% else %}money-pos{% endif %}">${{ txn.amount|floatformat:2|intcomma }}</td>
+  <td>{% if txn.cleared %}<i class="bi bi-check-circle-fill text-success" title="Cleared"></i>{% else %}<i class="bi bi-circle text-muted" title="Uncleared"></i>{% endif %}</td>
+  <td class="text-end" style="white-space:nowrap;">
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'transaction_edit' txn.pk %}"><i class="bi bi-pencil"></i></a>
+    <a class="btn btn-sm btn-outline-danger" href="{% url 'transaction_delete' txn.pk %}"><i class="bi bi-trash"></i></a>
+  </td>
+</tr>

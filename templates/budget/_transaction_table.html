@@ -1,0 +1,15 @@
+{# Reusable transactions table. Params: transactions, hide_account, empty_message #}
+<div class="table-responsive"><table class="table table-sm align-middle mb-0">
+  <thead><tr>
+    <th>Date</th><th>Payee</th><th>Category</th>
+    {% if not hide_account %}<th>Account</th>{% endif %}
+    <th class="text-end">Amount</th><th>Cleared</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for txn in transactions %}
+    {% include "budget/_transaction_row.html" with txn=txn hide_account=hide_account %}
+  {% empty %}
+    <tr><td colspan="{% if hide_account %}6{% else %}7{% endif %}" class="text-center text-muted">{{ empty_message|default:"No transactions match." }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>

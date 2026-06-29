@@ -17,7 +17,7 @@
     <tbody>
     {% for category in group.categories.all %}
       <tr class="{% if category.is_hidden %}text-muted{% endif %}">
-        <td>{{ category.name }}
+        <td><a href="{% url 'category_detail' category.pk %}">{{ category.name }}</a>
           {% if category.is_hidden %}<span class="badge bg-secondary">Hidden</span>{% endif %}
           {% if not category.is_active %}<span class="badge bg-secondary">Archived</span>{% endif %}</td>
         <td class="text-end">

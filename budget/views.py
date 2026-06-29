@@ -391,6 +391,39 @@ def category_edit(request, pk):
 
 
 @login_required
+def category_detail(request, pk):
+    category = _owned(Category, request, pk=pk)
+    current = services.month_floor(date.today())
+    row = services.build_category_row(request.user, category, current)
+    history = services.category_history(request.user, category, 6)
+
+    transactions = Transaction.objects.filter(
+        user=request.user, category=category
+    ).select_related("account")
+    month = request.GET.get("month")
+    if month:
+        try:
+            start = datetime.strptime(month, "%Y-%m").date().replace(day=1)
+            transactions = transactions.filter(
+                date__gte=start, date__lt=services.next_month_start(start)
+            )
+        except ValueError:
+            month = None
+
+    return render(
+        request,
+        "budget/category_detail.html",
+        {
+            "category": category,
+            "row": row,
+            "history": history,
+            "transactions": transactions[:200],
+            "month_filter": month,
+        },
+    )
+
+
+@login_required
 def category_toggle_hidden(request, pk):
     category = _owned(Category, request, pk=pk)
     if request.method == "POST":
@@ -452,7 +485,10 @@ def transaction_list(request):
 
 @login_required
 def transaction_create(request):
-    form = TransactionForm(request.POST or None, user=request.user)
+    initial = {}
+    if request.GET.get("category"):
+        initial["category"] = request.GET["category"]
+    form = TransactionForm(request.POST or None, user=request.user, initial=initial)
     if request.method == "POST" and form.is_valid():
         txn = form.save(commit=False)
         txn.user = request.user
