@@ -55,6 +55,15 @@ DATABASE_URL=postgres://user:password@host:5432/dbname
 python manage.py migrate
 ```
 
+**Verified:** the full test suite (89 tests) and the core budgeting workflow run
+identically on PostgreSQL 18 (psycopg 3) — e.g. locally:
+
+```bash
+createdb vanderplan
+DATABASE_URL=postgres://$USER@localhost:5432/vanderplan python manage.py migrate
+DATABASE_URL=postgres://$USER@localhost:5432/vanderplan python manage.py test
+```
+
 ## How the budgeting math works
 
 Calculations live in [`budget/services.py`](budget/services.py), kept free of
