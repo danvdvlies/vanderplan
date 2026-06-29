@@ -2,6 +2,8 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
+from budget import views as budget_views
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path(
@@ -10,5 +12,6 @@ urlpatterns = [
         name="login",
     ),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path("accounts/register/", budget_views.register, name="register"),
     path("", include("budget.urls")),
 ]

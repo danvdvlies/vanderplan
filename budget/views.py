@@ -9,18 +9,21 @@ another user's data.
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
+from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
-from . import services
+from . import services, starter
 from .forms import (
     AccountForm,
     CategoryForm,
     CategoryGroupForm,
     GoalForm,
     IncomeForm,
+    RegisterForm,
     TransactionForm,
 )
 from .models import (
@@ -54,6 +57,27 @@ def _parse_month(request) -> date:
 
 def _month_param(month_start: date) -> str:
     return month_start.strftime("%Y-%m")
+
+
+# --------------------------------------------------------------------------
+# Registration (self-service signup)
+# --------------------------------------------------------------------------
+def register(request):
+    """Create an account, seed a starter budget, and sign the user in."""
+    if not settings.ALLOW_REGISTRATION:
+        messages.error(request, "Registration is currently disabled.")
+        return redirect("login")
+    if request.user.is_authenticated:
+        return redirect("dashboard")
+
+    form = RegisterForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        user = form.save()
+        starter.create_starter_categories(user)
+        login(request, user)
+        messages.success(request, "Welcome! Your starter budget is ready.")
+        return redirect("dashboard")
+    return render(request, "registration/register.html", {"form": form})
 
 
 # --------------------------------------------------------------------------

@@ -29,7 +29,10 @@ python manage.py createsuperuser  # optional, for /admin
 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000/ and sign in (`demo` / `budget123` if you seeded).
+Open http://127.0.0.1:8000/ and either sign in (`demo` / `budget123` if you
+seeded) or **Create an account** — new signups get a starter set of category
+groups/categories so the budget screen is usable right away. Set
+`ALLOW_REGISTRATION=False` to close signup for a single-user deployment.
 
 ## Configuration (`.env`)
 
@@ -41,6 +44,7 @@ Open http://127.0.0.1:8000/ and sign in (`demo` / `budget123` if you seeded).
 | `DATABASE_URL` | `sqlite:///db.sqlite3` or `postgres://user:pass@host:5432/db` |
 | `CSRF_TRUSTED_ORIGINS` | Comma-separated origins for production HTTPS |
 | `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` | HTTPS hardening toggles |
+| `ALLOW_REGISTRATION` | `True` to allow self-service signup (default); `False` for a closed/single-user deployment |
 
 ### Switching to PostgreSQL
 

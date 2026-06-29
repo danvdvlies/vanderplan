@@ -34,6 +34,11 @@
           <button type="submit" class="btn btn-primary w-100">Sign in</button>
           <input type="hidden" name="next" value="{{ next }}">
         </form>
+        {% if allow_registration %}
+        <p class="text-center text-muted small mt-3 mb-0">
+          New here? <a href="{% url 'register' %}">Create an account</a>
+        </p>
+        {% endif %}
       </div>
     </div>
   </div>

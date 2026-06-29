@@ -13,7 +13,8 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
-from budget.models import Account, Category, CategoryGroup, Goal
+from budget.models import Account, Goal
+from budget.starter import create_starter_categories
 
 
 class Command(BaseCommand):
@@ -52,26 +53,8 @@ class Command(BaseCommand):
                 defaults={"account_type": acct_type, "starting_balance": Decimal("0.00")},
             )
 
-        # Groups and their categories
-        layout = [
-            ("Immediate Obligations", 1, ["Rent", "Groceries", "Fuel"]),
-            ("True Expenses", 2, ["Car Registration", "Car Service"]),
-            ("Savings Goals", 3, ["Emergency Fund"]),
-            ("Quality of Life", 4, ["Spending Money"]),
-        ]
-        categories = {}
-        for group_name, order, cat_names in layout:
-            group, _ = CategoryGroup.objects.get_or_create(
-                user=user, name=group_name, defaults={"sort_order": order}
-            )
-            for i, cat_name in enumerate(cat_names, start=1):
-                cat, _ = Category.objects.get_or_create(
-                    user=user,
-                    category_group=group,
-                    name=cat_name,
-                    defaults={"sort_order": i},
-                )
-                categories[cat_name] = cat
+        # Groups and their categories (shared with self-service registration)
+        categories = create_starter_categories(user)
 
         # Example goal: Car Registration, $220, due this month, repeats quarterly
         today = date.today()

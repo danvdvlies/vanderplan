@@ -53,6 +53,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "budget.context_processors.feature_flags",
             ],
         },
     },
@@ -105,6 +106,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
+
+# Allow self-service signup. Disable in single-user / closed deployments.
+ALLOW_REGISTRATION = config("ALLOW_REGISTRATION", default=True, cast=bool)
 
 # --- Production hardening (no-ops in local DEBUG) --------------------------
 SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=False, cast=bool)

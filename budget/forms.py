@@ -3,8 +3,25 @@ are scoped to the logged-in user in __init__ so a user can never attach their
 data to another user's records."""
 
 from django import forms
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
 
 from .models import Account, Category, CategoryGroup, Goal, Transaction
+
+
+class RegisterForm(UserCreationForm):
+    """Self-service signup: username + optional email + password."""
+
+    email = forms.EmailField(required=False)
+
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = ["username", "email"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault("class", "form-control")
 
 
 class BootstrapModelForm(forms.ModelForm):
