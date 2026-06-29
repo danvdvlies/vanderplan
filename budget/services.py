@@ -130,6 +130,54 @@ def total_cash_available(user) -> Decimal:
     return total
 
 
+def account_balances(account) -> dict:
+    """Cleared / uncleared / working balances for an account.
+
+    - working  = starting + all transactions (== account.current_balance)
+    - cleared  = starting + cleared transactions (what the bank should show)
+    - uncleared = working - cleared
+    """
+    cleared_txns = account.transactions.filter(cleared=True).aggregate(
+        s=Sum("amount")
+    )["s"] or ZERO
+    cleared = account.starting_balance + cleared_txns
+    working = account.current_balance
+    return {"cleared": cleared, "uncleared": working - cleared, "working": working}
+
+
+def reconcile_account(account, statement_balance: Decimal, on_date: date) -> dict:
+    """Reconcile an account against a statement balance.
+
+    If the cleared balance differs from the statement, an adjustment transaction
+    (cleared + reconciled) is created for the difference. All currently-cleared,
+    not-yet-reconciled transactions are then locked as reconciled. Returns a
+    summary with the adjustment amount and the number of rows locked.
+    """
+    from django.utils import timezone
+
+    cleared = account_balances(account)["cleared"]
+    difference = (statement_balance - cleared).quantize(CENTS)
+
+    adjustment = None
+    if difference != ZERO:
+        adjustment = Transaction.objects.create(
+            user=account.user,
+            account=account,
+            date=on_date,
+            payee="Reconciliation adjustment",
+            amount=difference,
+            cleared=True,
+        )
+
+    now = timezone.now()
+    locked = account.transactions.filter(cleared=True, reconciled=False).update(
+        reconciled=True, reconciled_at=now
+    )
+    if adjustment is not None:
+        adjustment.refresh_from_db()  # the bulk update above also locked it
+    return {"adjustment": adjustment, "difference": difference, "locked": locked}
+
+
 def total_available_in_categories(user, month_start: date) -> Decimal:
     """Sum of available balances across all active, non-hidden categories."""
     total = ZERO

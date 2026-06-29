@@ -7,7 +7,7 @@
   </tr></thead>
   <tbody>
   {% for txn in transactions %}
-    {% include "budget/_transaction_row.html" with txn=txn hide_account=hide_account %}
+    {% include "budget/_transaction_row.html" with txn=txn hide_account=hide_account clearable=clearable %}
   {% empty %}
     <tr><td colspan="{% if hide_account %}6{% else %}7{% endif %}" class="text-center text-muted">{{ empty_message|default:"No transactions match." }}</td></tr>
   {% endfor %}

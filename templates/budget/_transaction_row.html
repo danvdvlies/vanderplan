@@ -1,13 +1,30 @@
 {% load humanize %}
+{# Params: txn, hide_account, clearable (inline cleared toggle + reconciled lock) #}
 <tr>
   <td>{{ txn.date|date:"d M Y" }}</td>
   <td>{{ txn.payee|default:"—" }}{% if txn.memo %}<br><small class="text-muted">{{ txn.memo }}</small>{% endif %}</td>
   <td>{% if txn.is_income %}<span class="badge bg-success">Income</span>{% elif txn.category %}<a href="{% url 'category_detail' txn.category.pk %}">{{ txn.category.name }}</a>{% else %}<span class="badge bg-secondary">Uncategorised</span>{% endif %}</td>
   {% if not hide_account %}<td>{{ txn.account.name }}</td>{% endif %}
   <td class="text-end {% if txn.amount < 0 %}money-neg{% else %}money-pos{% endif %}">${{ txn.amount|floatformat:2|intcomma }}</td>
-  <td>{% if txn.cleared %}<i class="bi bi-check-circle-fill text-success" title="Cleared"></i>{% else %}<i class="bi bi-circle text-muted" title="Uncleared"></i>{% endif %}</td>
+  <td>
+    {% if clearable %}
+      <form method="post" action="{% url 'transaction_toggle_cleared' txn.pk %}" class="d-inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm p-0 border-0 bg-transparent" {% if txn.reconciled %}disabled title="Reconciled (locked)"{% else %}title="Toggle cleared"{% endif %}>
+          {% if txn.cleared %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}
+        </button>
+      </form>
+      {% if txn.reconciled %}<i class="bi bi-lock-fill text-muted ms-1" title="Reconciled"></i>{% endif %}
+    {% else %}
+      {% if txn.cleared %}<i class="bi bi-check-circle-fill text-success" title="Cleared"></i>{% else %}<i class="bi bi-circle text-muted" title="Uncleared"></i>{% endif %}
+    {% endif %}
+  </td>
   <td class="text-end" style="white-space:nowrap;">
-    <a class="btn btn-sm btn-outline-secondary" href="{% url 'transaction_edit' txn.pk %}"><i class="bi bi-pencil"></i></a>
-    <a class="btn btn-sm btn-outline-danger" href="{% url 'transaction_delete' txn.pk %}"><i class="bi bi-trash"></i></a>
+    {% if txn.reconciled %}
+      <span class="text-muted small"><i class="bi bi-lock-fill"></i> locked</span>
+    {% else %}
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'transaction_edit' txn.pk %}"><i class="bi bi-pencil"></i></a>
+      <a class="btn btn-sm btn-outline-danger" href="{% url 'transaction_delete' txn.pk %}"><i class="bi bi-trash"></i></a>
+    {% endif %}
   </td>
 </tr>

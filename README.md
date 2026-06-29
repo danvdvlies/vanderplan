@@ -82,8 +82,15 @@ SQLite-specific SQL so the same code runs on Postgres.
 
 ## Screens
 
-Dashboard · Budget month · Accounts · Categories · Transactions · Goals — plus
-Django admin at `/admin/`.
+Dashboard · Budget month · Accounts (with per-account register & reconciliation)
+· Categories (with drill-down) · Transactions (with CSV import/export) · Goals ·
+Reports — plus Django admin at `/admin/`.
+
+Beyond the core MVP the app also includes: one-click Fund / Fund-all,
+move-money-between-categories, explicit income & "Ready to Assign", a Reports
+screen (spending, income-vs-spending, net worth), self-service registration,
+category drill-down, CSV import/export, and statement reconciliation with
+cleared/working balances and locked reconciled transactions. See `PLAN.md`.
 
 ## Tests
 

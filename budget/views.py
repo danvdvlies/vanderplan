@@ -328,6 +328,69 @@ def account_edit(request, pk):
 
 
 @login_required
+def account_register(request, pk):
+    """Per-account transaction register with cleared/working balances."""
+    account = _owned(Account, request, pk=pk)
+    transactions = account.transactions.select_related("category")[:300]
+    return render(
+        request,
+        "budget/account_register.html",
+        {
+            "account": account,
+            "balances": services.account_balances(account),
+            "transactions": transactions,
+            "today": date.today(),
+        },
+    )
+
+
+@login_required
+def transaction_toggle_cleared(request, pk):
+    txn = _owned(Transaction, request, pk=pk)
+    if request.method == "POST":
+        if txn.reconciled:
+            messages.error(request, "Reconciled transactions are locked.")
+        else:
+            txn.cleared = not txn.cleared
+            txn.save(update_fields=["cleared", "updated_at"])
+    return redirect("account_register", pk=txn.account_id)
+
+
+@login_required
+def account_reconcile(request, pk):
+    account = _owned(Account, request, pk=pk)
+    if request.method != "POST":
+        return redirect("account_register", pk=pk)
+    try:
+        statement_balance = Decimal(request.POST.get("statement_balance", "") or "0")
+    except (InvalidOperation, TypeError):
+        messages.error(request, "Enter a valid statement balance.")
+        return redirect("account_register", pk=pk)
+
+    on_date = date.today()
+    if request.POST.get("date"):
+        try:
+            on_date = datetime.strptime(request.POST["date"], "%Y-%m-%d").date()
+        except ValueError:
+            pass
+
+    result = services.reconcile_account(account, statement_balance, on_date)
+    if result["difference"]:
+        messages.success(
+            request,
+            f"Reconciled — created a ${result['difference']} adjustment and "
+            f"locked {result['locked']} transaction{'' if result['locked'] == 1 else 's'}.",
+        )
+    else:
+        messages.success(
+            request,
+            f"Reconciled — locked {result['locked']} "
+            f"transaction{'' if result['locked'] == 1 else 's'}, no adjustment needed.",
+        )
+    return redirect("account_register", pk=pk)
+
+
+@login_required
 def account_archive(request, pk):
     account = _owned(Account, request, pk=pk)
     if request.method == "POST":
@@ -636,6 +699,9 @@ def income_create(request):
 @login_required
 def transaction_edit(request, pk):
     txn = _owned(Transaction, request, pk=pk)
+    if txn.reconciled:
+        messages.error(request, "This transaction is reconciled and locked.")
+        return redirect("transaction_list")
     form = TransactionForm(request.POST or None, instance=txn, user=request.user)
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -647,6 +713,9 @@ def transaction_edit(request, pk):
 @login_required
 def transaction_delete(request, pk):
     txn = _owned(Transaction, request, pk=pk)
+    if txn.reconciled:
+        messages.error(request, "This transaction is reconciled and locked.")
+        return redirect("transaction_list")
     if request.method == "POST":
         txn.delete()
         messages.success(request, "Transaction deleted.")

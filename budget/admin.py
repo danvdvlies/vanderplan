@@ -44,8 +44,8 @@ class BudgetAssignmentAdmin(admin.ModelAdmin):
 
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
-    list_display = ("date", "payee", "amount", "category", "account", "is_income", "cleared", "user")
-    list_filter = ("is_income", "cleared", "date")
+    list_display = ("date", "payee", "amount", "category", "account", "is_income", "cleared", "reconciled", "user")
+    list_filter = ("is_income", "cleared", "reconciled", "date")
     search_fields = ("payee", "memo")
 
 

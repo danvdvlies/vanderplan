@@ -14,7 +14,14 @@ urlpatterns = [
     path("accounts/", views.account_list, name="account_list"),
     path("accounts/new/", views.account_create, name="account_create"),
     path("accounts/<int:pk>/edit/", views.account_edit, name="account_edit"),
+    path("accounts/<int:pk>/register/", views.account_register, name="account_register"),
+    path("accounts/<int:pk>/reconcile/", views.account_reconcile, name="account_reconcile"),
     path("accounts/<int:pk>/archive/", views.account_archive, name="account_archive"),
+    path(
+        "transactions/<int:pk>/toggle-cleared/",
+        views.transaction_toggle_cleared,
+        name="transaction_toggle_cleared",
+    ),
     # Category groups & categories
     path("categories/", views.category_list, name="category_list"),
     path("categories/<int:pk>/", views.category_detail, name="category_detail"),

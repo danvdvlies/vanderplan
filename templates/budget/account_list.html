@@ -11,12 +11,13 @@
     <tbody>
     {% for account in accounts %}
       <tr class="{% if not account.is_active %}text-muted{% endif %}">
-        <td>{{ account.name }}</td>
+        <td><a href="{% url 'account_register' account.pk %}">{{ account.name }}</a></td>
         <td>{{ account.get_account_type_display }}</td>
         <td class="text-end">${{ account.starting_balance|floatformat:2|intcomma }}</td>
         <td class="text-end {% if account.current_balance < 0 %}money-neg{% endif %}">${{ account.current_balance|floatformat:2|intcomma }}</td>
         <td>{% if account.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Archived</span>{% endif %}</td>
         <td class="text-end">
+          <a class="btn btn-sm btn-outline-primary" href="{% url 'account_register' account.pk %}"><i class="bi bi-check2-square"></i> Reconcile</a>
           <a class="btn btn-sm btn-outline-secondary" href="{% url 'account_edit' account.pk %}"><i class="bi bi-pencil"></i></a>
           <form method="post" action="{% url 'account_archive' account.pk %}" class="d-inline">
             {% csrf_token %}

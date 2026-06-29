@@ -176,6 +176,9 @@ class Transaction(TimeStampedModel):
     )
     memo = models.CharField(max_length=255, blank=True)
     cleared = models.BooleanField(default=False)
+    # Locked once part of a completed reconciliation (read-only thereafter).
+    reconciled = models.BooleanField(default=False)
+    reconciled_at = models.DateTimeField(null=True, blank=True)
     # Explicit inflow marker. Income lands in "Ready to Assign" (no spending
     # category) instead of being an ambiguous uncategorised positive amount.
     is_income = models.BooleanField(default=False)

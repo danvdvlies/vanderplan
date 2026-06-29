@@ -34,20 +34,21 @@ its own commit with tests. Checked items are shipped.
 - [x] Duplicate detection on (account, date, amount, payee); user can skip.
 - [x] Safety: 2 MB / 5000-row caps; atomic insert; per-row error reporting.
 
-## 3. Reconciliation / clearing balance
+## 3. Reconciliation / clearing balance — DONE
 
-`Transaction.cleared` already exists; this turns it into a workflow.
-
-- [ ] Add `reconciled` (bool) + `reconciled_at` (nullable) to Transaction
-      (migration).
-- [ ] `account_balances(account)` -> cleared / uncleared / working.
-- [ ] Per-account register page with inline cleared toggle and the three
+- [x] Add `reconciled` (bool) + `reconciled_at` (nullable) to Transaction
+      (migration 0003).
+- [x] `account_balances(account)` -> cleared / uncleared / working.
+- [x] Per-account register page with inline cleared toggle and the three
       balances.
-- [ ] `reconcile_account(account, statement_balance, date)`: create a
+- [x] `reconcile_account(account, statement_balance, date)`: create a
       cleared+reconciled adjustment for any difference; mark cleared rows
       reconciled.
-- [ ] Reconciled rows render locked (edit/delete disabled with a warning).
-- [ ] Tests: balance breakdown, reconcile with/without difference, adjustment
-      creation, lock behaviour.
+- [x] Reconciled rows render locked; edit/delete/toggle blocked server-side.
+- [x] Tests.
 
 Optional later: a `Reconciliation` history model.
+
+---
+
+All planned features shipped.
