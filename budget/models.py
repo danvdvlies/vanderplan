@@ -232,3 +232,71 @@ class Goal(TimeStampedModel):
     @property
     def is_repeating(self):
         return bool(self.repeat_interval_months)
+
+
+class Scenario(TimeStampedModel):
+    """A what-if affordability scenario layered on the real budget.
+
+    Scenarios are read-only over the real budget: they only *read* income and
+    spending averages and never create accounts, transactions or assignments,
+    so the actual budget is never affected.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="scenarios"
+    )
+    name = models.CharField(max_length=120)
+    notes = models.TextField(blank=True)
+    # Optional: override the derived monthly-income baseline with a fixed figure.
+    monthly_income_override = models.DecimalField(
+        null=True, blank=True,
+        help_text="Leave blank to use your recent average monthly income.",
+        **MONEY,
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["user", "is_active"])]
+
+    def __str__(self):
+        return self.name
+
+
+class ScenarioLine(TimeStampedModel):
+    EXPENSE = "expense"
+    INCOME = "income"
+    ONE_OFF = "one_off"
+    KIND_CHOICES = [
+        (EXPENSE, "Monthly expense"),
+        (INCOME, "Monthly income"),
+        (ONE_OFF, "One-off upfront cost"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="scenario_lines"
+    )
+    scenario = models.ForeignKey(
+        Scenario, on_delete=models.CASCADE, related_name="lines"
+    )
+    label = models.CharField(max_length=120)
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, default=EXPENSE)
+    # Magnitude (always positive): a monthly amount for expense/income, or a
+    # total upfront amount for one_off.
+    amount = models.DecimalField(default=Decimal("0.00"), **MONEY)
+    # Optional link to a real category, for a monthly expense that replaces or
+    # tops up a cost you already have.
+    category = models.ForeignKey(
+        Category, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="scenario_lines",
+    )
+    # If True (expense lines only), the planner counts this amount minus the
+    # category's current average monthly spend, so an increase isn't double-counted.
+    replaces_current = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["kind", "label"]
+        indexes = [models.Index(fields=["user", "scenario"])]
+
+    def __str__(self):
+        return f"{self.label} ({self.get_kind_display()})"

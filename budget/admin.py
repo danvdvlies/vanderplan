@@ -7,6 +7,8 @@ from .models import (
     Category,
     CategoryGroup,
     Goal,
+    Scenario,
+    ScenarioLine,
     Transaction,
 )
 
@@ -47,6 +49,18 @@ class TransactionAdmin(admin.ModelAdmin):
     list_display = ("date", "payee", "amount", "category", "account", "is_income", "cleared", "reconciled", "user")
     list_filter = ("is_income", "cleared", "reconciled", "date")
     search_fields = ("payee", "memo")
+
+
+class ScenarioLineInline(admin.TabularInline):
+    model = ScenarioLine
+    extra = 0
+
+
+@admin.register(Scenario)
+class ScenarioAdmin(admin.ModelAdmin):
+    list_display = ("name", "user", "monthly_income_override", "is_active")
+    list_filter = ("is_active",)
+    inlines = [ScenarioLineInline]
 
 
 @admin.register(Goal)

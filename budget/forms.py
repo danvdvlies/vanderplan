@@ -6,7 +6,15 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
-from .models import Account, Category, CategoryGroup, Goal, Transaction
+from .models import (
+    Account,
+    Category,
+    CategoryGroup,
+    Goal,
+    Scenario,
+    ScenarioLine,
+    Transaction,
+)
 
 
 class RegisterForm(UserCreationForm):
@@ -160,3 +168,35 @@ class GoalForm(BootstrapModelForm):
             self.fields["category"].queryset = Category.objects.filter(
                 user=user, is_active=True
             )
+
+
+class ScenarioForm(BootstrapModelForm):
+    class Meta:
+        model = Scenario
+        fields = ["name", "notes", "monthly_income_override", "is_active"]
+        widgets = {"notes": forms.Textarea(attrs={"rows": 2})}
+
+
+class ScenarioLineForm(BootstrapModelForm):
+    class Meta:
+        model = ScenarioLine
+        fields = ["label", "kind", "amount", "category", "replaces_current"]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is not None:
+            self.fields["category"].queryset = Category.objects.filter(
+                user=user, is_active=True
+            )
+        self.fields["category"].required = False
+        self.fields["category"].empty_label = "— none —"
+        self.fields["category"].help_text = "Optional: link a monthly expense to a current category."
+        self.fields["replaces_current"].label = "Replaces the linked category's current cost"
+
+    def clean(self):
+        cleaned = super().clean()
+        # 'replaces current' only makes sense for an expense tied to a category.
+        if cleaned.get("replaces_current"):
+            if cleaned.get("kind") != ScenarioLine.EXPENSE or not cleaned.get("category"):
+                cleaned["replaces_current"] = False
+        return cleaned

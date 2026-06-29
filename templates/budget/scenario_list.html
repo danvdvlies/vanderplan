@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Planning{% endblock %}
+{% block heading %}Planning · Scenarios{% endblock %}
+{% block actions %}<a class="btn btn-primary btn-sm" href="{% url 'scenario_create' %}"><i class="bi bi-plus-lg"></i> New scenario</a>{% endblock %}
+
+{% block content %}
+<div class="card mb-3"><div class="card-body">
+  <p class="text-muted mb-0">
+    Scenarios let you model a big "what if" — a new place, a car, school fees —
+    on top of your real budget to see if it's affordable. They only read your
+    real income and spending; they never change your actual budget.
+  </p>
+</div></div>
+
+<div class="card"><div class="card-body">
+  <table class="table align-middle mb-0">
+    <thead><tr><th>Scenario</th><th>Notes</th><th></th></tr></thead>
+    <tbody>
+    {% for scenario in scenarios %}
+      <tr class="{% if not scenario.is_active %}text-muted{% endif %}">
+        <td><a href="{% url 'scenario_detail' scenario.pk %}">{{ scenario.name }}</a>
+          {% if not scenario.is_active %}<span class="badge bg-secondary">Inactive</span>{% endif %}</td>
+        <td class="text-muted">{{ scenario.notes|truncatechars:80 }}</td>
+        <td class="text-end" style="white-space:nowrap;">
+          <a class="btn btn-sm btn-outline-secondary" href="{% url 'scenario_detail' scenario.pk %}">Open</a>
+          <a class="btn btn-sm btn-outline-danger" href="{% url 'scenario_delete' scenario.pk %}"><i class="bi bi-trash"></i></a>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="3" class="text-center text-muted">No scenarios yet. Create one to model a what-if.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endblock %}

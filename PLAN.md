@@ -51,4 +51,30 @@ Optional later: a `Reconciliation` history model.
 
 ---
 
-All planned features shipped.
+## 4. Scenario planner (what-if affordability) — DONE
+
+Model a big "what if" (new place, car, school fees) on top of the real budget
+without touching it.
+
+- [x] `Scenario` + `ScenarioLine` models (migration 0004); no existing model
+      changed.
+- [x] `scenario_summary()` reads real last-3-month income/spending averages
+      (income overridable) and adds scenario monthly expenses/income + one-off
+      upfront costs. `replaces_current` expense lines count only the delta over
+      the linked category's current average spend.
+- [x] Planner page: affordable/short verdict, today-vs-scenario table, upfront
+      cash + months-to-save, line editor. Scenarios CRUD + sidebar "Planning".
+- [x] Read-only over the real budget — never writes accounts/transactions/
+      assignments. Tests cover the math + ownership.
+
+## 5. Multiple budgets / the girls' own budget — FUTURE (not started)
+
+The bigger one: independent ledgers a user can switch between (and eventually
+share). This is a real refactor — a `Budget` container owning every model, a
+`budget` FK on each, active-budget filtering everywhere, a switcher, and
+duplicate-budget. Best planned as its own round; overlaps with the deferred
+multi-user / sharing direction.
+
+---
+
+Scenario planner shipped; multiple budgets is the next planned feature.

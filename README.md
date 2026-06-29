@@ -98,8 +98,10 @@ Reports — plus Django admin at `/admin/`.
 Beyond the core MVP the app also includes: one-click Fund / Fund-all,
 move-money-between-categories, explicit income & "Ready to Assign", a Reports
 screen (spending, income-vs-spending, net worth), self-service registration,
-category drill-down, CSV import/export, and statement reconciliation with
-cleared/working balances and locked reconciled transactions. See `PLAN.md`.
+category drill-down, CSV import/export, statement reconciliation with
+cleared/working balances and locked reconciled transactions, and a **Scenario
+planner** for modelling big "what if" affordability decisions (new place, car)
+on top of — but without touching — the real budget. See `PLAN.md`.
 
 ## Tests
 

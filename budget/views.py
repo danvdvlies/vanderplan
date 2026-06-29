@@ -28,6 +28,8 @@ from .forms import (
     GoalForm,
     IncomeForm,
     RegisterForm,
+    ScenarioForm,
+    ScenarioLineForm,
     TransactionForm,
 )
 from .models import (
@@ -36,6 +38,8 @@ from .models import (
     Category,
     CategoryGroup,
     Goal,
+    Scenario,
+    ScenarioLine,
     Transaction,
 )
 
@@ -248,6 +252,90 @@ def budget_fund_all(request):
     else:
         messages.info(request, "Everything is already funded.")
     return redirect(f"{reverse('budget_month')}?month={_month_param(month_start)}")
+
+
+# --------------------------------------------------------------------------
+# Scenario planner (what-if affordability)
+# --------------------------------------------------------------------------
+@login_required
+def scenario_list(request):
+    scenarios = Scenario.objects.filter(user=request.user)
+    return render(request, "budget/scenario_list.html", {"scenarios": scenarios})
+
+
+@login_required
+def scenario_detail(request, pk):
+    scenario = _owned(Scenario, request, pk=pk)
+    return render(
+        request,
+        "budget/scenario_detail.html",
+        {
+            "scenario": scenario,
+            "summary": services.scenario_summary(scenario),
+            "lines": scenario.lines.all(),
+            "line_form": ScenarioLineForm(user=request.user),
+        },
+    )
+
+
+@login_required
+def scenario_create(request):
+    form = ScenarioForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        scenario = form.save(commit=False)
+        scenario.user = request.user
+        scenario.save()
+        messages.success(request, "Scenario created.")
+        return redirect("scenario_detail", pk=scenario.pk)
+    return render(request, "budget/form.html", {"form": form, "title": "New Scenario"})
+
+
+@login_required
+def scenario_edit(request, pk):
+    scenario = _owned(Scenario, request, pk=pk)
+    form = ScenarioForm(request.POST or None, instance=scenario)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Scenario updated.")
+        return redirect("scenario_detail", pk=scenario.pk)
+    return render(request, "budget/form.html", {"form": form, "title": "Edit Scenario"})
+
+
+@login_required
+def scenario_delete(request, pk):
+    scenario = _owned(Scenario, request, pk=pk)
+    if request.method == "POST":
+        scenario.delete()
+        messages.success(request, "Scenario deleted.")
+        return redirect("scenario_list")
+    return render(
+        request,
+        "budget/confirm_delete.html",
+        {"object": scenario, "title": "Delete Scenario", "cancel_url": "scenario_list"},
+    )
+
+
+@login_required
+def scenario_line_create(request, pk):
+    scenario = _owned(Scenario, request, pk=pk)
+    form = ScenarioLineForm(request.POST or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        line = form.save(commit=False)
+        line.user = request.user
+        line.scenario = scenario
+        line.save()
+        messages.success(request, "Line added.")
+    return redirect("scenario_detail", pk=scenario.pk)
+
+
+@login_required
+def scenario_line_delete(request, pk):
+    line = _owned(ScenarioLine, request, pk=pk)
+    scenario_pk = line.scenario_id
+    if request.method == "POST":
+        line.delete()
+        messages.success(request, "Line removed.")
+    return redirect("scenario_detail", pk=scenario_pk)
 
 
 # --------------------------------------------------------------------------

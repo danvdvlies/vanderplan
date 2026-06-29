@@ -371,6 +371,97 @@ def move_between_categories(
 
 
 # --------------------------------------------------------------------------
+# Scenario planner (what-if affordability, read-only over the real budget)
+# --------------------------------------------------------------------------
+def avg_monthly_income(user, months: int = 3) -> Decimal:
+    """Average monthly income over the last `months` months."""
+    base = month_floor(date.today())
+    total = sum(
+        (income_for_month(user, add_months(base, -i)) for i in range(months)), ZERO
+    )
+    return (total / months).quantize(CENTS)
+
+
+def avg_monthly_spending(user, months: int = 3) -> Decimal:
+    """Average monthly spending over the last `months` months."""
+    base = month_floor(date.today())
+    total = sum(
+        (total_spending_for_month(user, add_months(base, -i)) for i in range(months)), ZERO
+    )
+    return (total / months).quantize(CENTS)
+
+
+def category_avg_monthly_spending(user, category, months: int = 3) -> Decimal:
+    """Average monthly spend for one category (used by 'replaces current')."""
+    base = month_floor(date.today())
+    total = ZERO
+    for i in range(months):
+        activity = category_activity(user, category, add_months(base, -i))
+        if activity < ZERO:
+            total += -activity
+    return (total / months).quantize(CENTS)
+
+
+def scenario_summary(scenario) -> dict:
+    """Affordability figures for a scenario vs the real budget today.
+
+    Baselines come from the user's real last-3-month averages (income may be
+    overridden on the scenario). Scenario lines add monthly expenses/income and
+    one-off upfront costs. 'replaces_current' expense lines count only the delta
+    over the linked category's current average spend, so increases aren't
+    double-counted. Nothing here writes to the real budget.
+    """
+    user = scenario.user
+
+    base_income = (
+        scenario.monthly_income_override
+        if scenario.monthly_income_override is not None
+        else avg_monthly_income(user)
+    )
+    base_spending = avg_monthly_spending(user)
+
+    extra_income = ZERO
+    extra_expense = ZERO
+    upfront = ZERO
+    for line in scenario.lines.all():
+        if line.kind == line.INCOME:
+            extra_income += line.amount
+        elif line.kind == line.ONE_OFF:
+            upfront += line.amount
+        else:  # expense
+            if line.replaces_current and line.category_id:
+                extra_expense += line.amount - category_avg_monthly_spending(
+                    user, line.category
+                )
+            else:
+                extra_expense += line.amount
+
+    today_surplus = base_income - base_spending
+    scenario_income = base_income + extra_income
+    scenario_spending = base_spending + extra_expense
+    scenario_surplus = scenario_income - scenario_spending
+
+    months_to_cover_upfront = None
+    if upfront > ZERO and scenario_surplus > ZERO:
+        months_to_cover_upfront = int((upfront / scenario_surplus).to_integral_value(rounding=ROUND_CEILING))
+
+    return {
+        "base_income": base_income,
+        "base_spending": base_spending,
+        "today_surplus": today_surplus,
+        "extra_income": extra_income,
+        "extra_expense": extra_expense,
+        "scenario_income": scenario_income,
+        "scenario_spending": scenario_spending,
+        "scenario_surplus": scenario_surplus,
+        "surplus_change": scenario_surplus - today_surplus,
+        "upfront": upfront,
+        "months_to_cover_upfront": months_to_cover_upfront,
+        "affordable": scenario_surplus >= ZERO,
+    }
+
+
+# --------------------------------------------------------------------------
 # Reports (read-only aggregates)
 # --------------------------------------------------------------------------
 def total_spending_for_month(user, month_start: date) -> Decimal:

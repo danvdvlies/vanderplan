@@ -47,6 +47,14 @@ urlpatterns = [
         name="transaction_delete",
     ),
     # Goals
+    # Scenario planner
+    path("planning/", views.scenario_list, name="scenario_list"),
+    path("planning/new/", views.scenario_create, name="scenario_create"),
+    path("planning/<int:pk>/", views.scenario_detail, name="scenario_detail"),
+    path("planning/<int:pk>/edit/", views.scenario_edit, name="scenario_edit"),
+    path("planning/<int:pk>/delete/", views.scenario_delete, name="scenario_delete"),
+    path("planning/<int:pk>/lines/add/", views.scenario_line_create, name="scenario_line_create"),
+    path("planning/lines/<int:pk>/delete/", views.scenario_line_delete, name="scenario_line_delete"),
     # Reports
     path("reports/", views.reports, name="reports"),
     # Goals
