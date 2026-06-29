@@ -144,6 +144,37 @@ def budget_assign(request):
 
 
 @login_required
+def budget_move(request):
+    """Move assigned money from one category to another within a month."""
+    month_start = _parse_month(request)
+    redirect_url = f"{reverse('budget_month')}?month={_month_param(month_start)}"
+    if request.method != "POST":
+        return redirect(redirect_url)
+
+    from_category = _owned(Category, request, pk=request.POST.get("from_category"))
+    to_category = _owned(Category, request, pk=request.POST.get("to_category"))
+    if from_category == to_category:
+        messages.error(request, "Choose two different categories.")
+        return redirect(redirect_url)
+    try:
+        amount = Decimal(request.POST.get("amount", "0") or "0")
+    except (InvalidOperation, TypeError):
+        messages.error(request, "Enter a valid amount.")
+        return redirect(redirect_url)
+    if amount <= 0:
+        messages.error(request, "Enter an amount greater than zero.")
+        return redirect(redirect_url)
+
+    services.move_between_categories(
+        request.user, month_start, from_category, to_category, amount
+    )
+    messages.success(
+        request, f"Moved ${amount} from {from_category.name} to {to_category.name}."
+    )
+    return redirect(redirect_url)
+
+
+@login_required
 def budget_fund(request):
     """One-click: assign the still-needed amount to a single category."""
     if request.method != "POST":

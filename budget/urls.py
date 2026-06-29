@@ -7,6 +7,7 @@ urlpatterns = [
     # Budget month
     path("budget/", views.budget_month, name="budget_month"),
     path("budget/assign/", views.budget_assign, name="budget_assign"),
+    path("budget/move/", views.budget_move, name="budget_move"),
     path("budget/fund/", views.budget_fund, name="budget_fund"),
     path("budget/fund-all/", views.budget_fund_all, name="budget_fund_all"),
     # Accounts

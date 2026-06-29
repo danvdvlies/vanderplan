@@ -267,6 +267,32 @@ def fund_category(user, category, month_start: date) -> Decimal:
     return needed
 
 
+def move_between_categories(
+    user, month_start: date, from_category, to_category, amount: Decimal
+) -> None:
+    """Move `amount` of assigned money from one category to another in a month.
+
+    Implemented as a paired assignment change: the source month-assignment goes
+    down by `amount` (it may go negative — the spec allows that specifically to
+    move money out of a category) and the destination goes up by the same. Total
+    assigned for the month is unchanged, so "To be assigned" is unaffected — only
+    the two categories' available balances shift. Callers must have already
+    confirmed ownership of both categories.
+    """
+    budget_month = get_or_create_budget_month(user, month_start)
+    source, _ = BudgetAssignment.objects.get_or_create(
+        user=user, budget_month=budget_month, category=from_category
+    )
+    source.assigned_amount = source.assigned_amount - amount
+    source.save(update_fields=["assigned_amount", "updated_at"])
+
+    destination, _ = BudgetAssignment.objects.get_or_create(
+        user=user, budget_month=budget_month, category=to_category
+    )
+    destination.assigned_amount = destination.assigned_amount + amount
+    destination.save(update_fields=["assigned_amount", "updated_at"])
+
+
 def build_budget_groups(user, month_start: date) -> list[dict]:
     """Grouped category rows for the budget screen, ordered by group/category."""
     groups = []
