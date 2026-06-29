@@ -219,6 +219,44 @@ def budget_fund_all(request):
 
 
 # --------------------------------------------------------------------------
+# Reports
+# --------------------------------------------------------------------------
+@login_required
+def reports(request):
+    month_start = _parse_month(request)
+    spending = services.spending_by_category(request.user, month_start)
+    trend = services.monthly_trend(request.user, 6)
+    networth = services.net_worth_trend(request.user, 6)
+
+    # Bar widths (percent) computed here so the template carries no math.
+    trend_max = max(
+        [t["income"] for t in trend] + [t["spending"] for t in trend] + [Decimal("1")]
+    )
+    for t in trend:
+        t["income_w"] = int(t["income"] / trend_max * 100)
+        t["spending_w"] = int(t["spending"] / trend_max * 100)
+
+    nw_max = max([abs(n["net_worth"]) for n in networth] + [Decimal("1")])
+    for n in networth:
+        n["width"] = int(abs(n["net_worth"]) / nw_max * 100)
+        n["negative"] = n["net_worth"] < 0
+
+    context = {
+        "month_start": month_start,
+        "month_param": _month_param(month_start),
+        "prev_month": _month_param(services.add_months(month_start, -1)),
+        "next_month": _month_param(services.add_months(month_start, 1)),
+        "spending": spending,
+        "trend": trend,
+        "networth": networth,
+        "income_this_month": services.income_for_month(request.user, month_start),
+        "spending_this_month": services.total_spending_for_month(request.user, month_start),
+        "current_net_worth": networth[-1]["net_worth"] if networth else Decimal("0.00"),
+    }
+    return render(request, "budget/reports.html", context)
+
+
+# --------------------------------------------------------------------------
 # Accounts
 # --------------------------------------------------------------------------
 @login_required

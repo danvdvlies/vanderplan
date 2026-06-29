@@ -37,6 +37,9 @@ urlpatterns = [
         name="transaction_delete",
     ),
     # Goals
+    # Reports
+    path("reports/", views.reports, name="reports"),
+    # Goals
     path("goals/", views.goal_list, name="goal_list"),
     path("goals/new/", views.goal_create, name="goal_create"),
     path("goals/<int:pk>/edit/", views.goal_edit, name="goal_edit"),

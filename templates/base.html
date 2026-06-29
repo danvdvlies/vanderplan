@@ -28,6 +28,9 @@
         <li class="sidebar-item {% if r == 'goal_list' %}active{% endif %}">
           <a class="sidebar-link" href="{% url 'goal_list' %}"><i class="bi bi-bullseye"></i> Goals</a>
         </li>
+        <li class="sidebar-item {% if r == 'reports' %}active{% endif %}">
+          <a class="sidebar-link" href="{% url 'reports' %}"><i class="bi bi-bar-chart-line"></i> Reports</a>
+        </li>
         <li class="sidebar-header">Money</li>
         <li class="sidebar-item {% if r == 'account_list' %}active{% endif %}">
           <a class="sidebar-link" href="{% url 'account_list' %}"><i class="bi bi-bank"></i> Accounts</a>

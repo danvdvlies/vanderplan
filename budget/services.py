@@ -305,6 +305,90 @@ def move_between_categories(
     destination.save(update_fields=["assigned_amount", "updated_at"])
 
 
+# --------------------------------------------------------------------------
+# Reports (read-only aggregates)
+# --------------------------------------------------------------------------
+def total_spending_for_month(user, month_start: date) -> Decimal:
+    """Magnitude of all non-income expense (negative) transactions in the month."""
+    start = month_floor(month_start)
+    total = Transaction.objects.filter(
+        user=user, is_income=False, amount__lt=0,
+        date__gte=start, date__lt=next_month_start(start),
+    ).aggregate(s=Sum("amount"))["s"] or ZERO
+    return -total
+
+
+def spending_by_category(user, month_start: date) -> dict:
+    """Spending grouped by category for one month, largest first.
+
+    Counts only non-income outflows (amount < 0). Transactions with no category
+    are bucketed as "Uncategorised". Returns rows (each with percent of total)
+    and the month's total spending.
+    """
+    start = month_floor(month_start)
+    grouped = (
+        Transaction.objects.filter(
+            user=user, is_income=False, amount__lt=0,
+            date__gte=start, date__lt=next_month_start(start),
+        )
+        .values("category", "category__name")
+        .annotate(total=Sum("amount"))
+    )
+    rows = []
+    total_spent = ZERO
+    for entry in grouped:
+        spent = -(entry["total"] or ZERO)
+        if spent <= ZERO:
+            continue
+        rows.append({"name": entry["category__name"] or "Uncategorised", "spent": spent})
+        total_spent += spent
+
+    rows.sort(key=lambda r: r["spent"], reverse=True)
+    for row in rows:
+        row["percent"] = (
+            (row["spent"] / total_spent * Decimal("100")).quantize(Decimal("1"))
+            if total_spent
+            else ZERO
+        )
+    return {"rows": rows, "total": total_spent}
+
+
+def monthly_trend(user, num_months: int = 6) -> list[dict]:
+    """Income, spending and net for the last `num_months` months (oldest first)."""
+    base = month_floor(date.today())
+    out = []
+    for i in range(num_months - 1, -1, -1):
+        m = add_months(base, -i)
+        income = income_for_month(user, m)
+        spending = total_spending_for_month(user, m)
+        out.append(
+            {"month": m, "income": income, "spending": spending, "net": income - spending}
+        )
+    return out
+
+
+def net_worth_trend(user, num_months: int = 6) -> list[dict]:
+    """End-of-month net worth for the last `num_months` months (oldest first).
+
+    Net worth includes every account (credit-card balances count as the debt
+    they are), computed as total starting balances plus all transactions dated
+    on or before the end of each month — database-neutral, no SQLite date funcs.
+    """
+    starting_total = (
+        Account.objects.filter(user=user).aggregate(s=Sum("starting_balance"))["s"]
+        or ZERO
+    )
+    base = month_floor(date.today())
+    out = []
+    for i in range(num_months - 1, -1, -1):
+        m = add_months(base, -i)
+        txn_sum = Transaction.objects.filter(
+            user=user, date__lt=next_month_start(m)
+        ).aggregate(s=Sum("amount"))["s"] or ZERO
+        out.append({"month": m, "net_worth": starting_total + txn_sum})
+    return out
+
+
 def build_budget_groups(user, month_start: date) -> list[dict]:
     """Grouped category rows for the budget screen, ordered by group/category."""
     groups = []
