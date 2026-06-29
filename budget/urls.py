@@ -29,6 +29,7 @@ urlpatterns = [
     # Transactions
     path("transactions/", views.transaction_list, name="transaction_list"),
     path("transactions/new/", views.transaction_create, name="transaction_create"),
+    path("income/new/", views.income_create, name="income_create"),
     path("transactions/<int:pk>/edit/", views.transaction_edit, name="transaction_edit"),
     path(
         "transactions/<int:pk>/delete/",

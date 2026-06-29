@@ -50,7 +50,10 @@ class CategoryForm(BootstrapModelForm):
 class TransactionForm(BootstrapModelForm):
     class Meta:
         model = Transaction
-        fields = ["account", "date", "payee", "amount", "category", "memo", "cleared"]
+        fields = [
+            "account", "date", "payee", "amount",
+            "category", "memo", "cleared", "is_income",
+        ]
         widgets = {"date": forms.DateInput(attrs={"type": "date"})}
 
     def __init__(self, *args, user=None, **kwargs):
@@ -64,6 +67,38 @@ class TransactionForm(BootstrapModelForm):
             )
         self.fields["category"].required = False
         self.fields["category"].empty_label = "Uncategorised"
+        self.fields["is_income"].label = "Income (goes to Ready to Assign)"
+
+    def clean(self):
+        cleaned = super().clean()
+        # Income is never tied to a spending category; it funds the budget.
+        if cleaned.get("is_income"):
+            cleaned["category"] = None
+        return cleaned
+
+
+class IncomeForm(BootstrapModelForm):
+    """Streamlined inflow form. Always saves a positive, uncategorised income."""
+
+    class Meta:
+        model = Transaction
+        fields = ["account", "date", "payee", "amount", "memo"]
+        widgets = {"date": forms.DateInput(attrs={"type": "date"})}
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is not None:
+            self.fields["account"].queryset = Account.objects.filter(
+                user=user, is_active=True
+            )
+        self.fields["payee"].label = "Source"
+        self.fields["amount"].help_text = "Enter a positive amount."
+
+    def clean_amount(self):
+        amount = self.cleaned_data.get("amount")
+        if amount is None or amount <= 0:
+            raise forms.ValidationError("Income must be a positive amount.")
+        return amount
 
 
 class GoalForm(BootstrapModelForm):

@@ -176,6 +176,9 @@ class Transaction(TimeStampedModel):
     )
     memo = models.CharField(max_length=255, blank=True)
     cleared = models.BooleanField(default=False)
+    # Explicit inflow marker. Income lands in "Ready to Assign" (no spending
+    # category) instead of being an ambiguous uncategorised positive amount.
+    is_income = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-date", "-created_at"]

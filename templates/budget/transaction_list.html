@@ -2,7 +2,10 @@
 {% load humanize %}
 {% block title %}Transactions{% endblock %}
 {% block heading %}Transactions{% endblock %}
-{% block actions %}<a class="btn btn-primary btn-sm" href="{% url 'transaction_create' %}"><i class="bi bi-plus-lg"></i> Add transaction</a>{% endblock %}
+{% block actions %}
+  <a class="btn btn-success btn-sm" href="{% url 'income_create' %}"><i class="bi bi-plus-circle"></i> Add income</a>
+  <a class="btn btn-primary btn-sm" href="{% url 'transaction_create' %}"><i class="bi bi-plus-lg"></i> Add transaction</a>
+{% endblock %}
 
 {% block content %}
 <div class="card mb-3"><div class="card-body">
@@ -25,9 +28,15 @@
       <label class="form-label small">Month</label>
       <input type="month" name="month" value="{{ filters.month }}" class="form-control form-control-sm">
     </div>
-    <div class="col-md-2 form-check ms-2 mb-2">
-      <input type="checkbox" class="form-check-input" name="uncategorised" value="1" id="uncat" {% if filters.uncategorised %}checked{% endif %}>
-      <label class="form-check-label small" for="uncat">Uncategorised only</label>
+    <div class="col-md-2 ms-2 mb-2">
+      <div class="form-check">
+        <input type="checkbox" class="form-check-input" name="uncategorised" value="1" id="uncat" {% if filters.uncategorised %}checked{% endif %}>
+        <label class="form-check-label small" for="uncat">Uncategorised only</label>
+      </div>
+      <div class="form-check">
+        <input type="checkbox" class="form-check-input" name="income" value="1" id="inc" {% if filters.income %}checked{% endif %}>
+        <label class="form-check-label small" for="inc">Income only</label>
+      </div>
     </div>
     <div class="col-md-2">
       <button class="btn btn-sm btn-primary" type="submit">Filter</button>
@@ -44,7 +53,7 @@
       <tr>
         <td>{{ txn.date|date:"d M Y" }}</td>
         <td>{{ txn.payee|default:"—" }}{% if txn.memo %}<br><small class="text-muted">{{ txn.memo }}</small>{% endif %}</td>
-        <td>{% if txn.category %}{{ txn.category.name }}{% else %}<span class="badge bg-secondary">Uncategorised</span>{% endif %}</td>
+        <td>{% if txn.is_income %}<span class="badge bg-success">Income</span>{% elif txn.category %}{{ txn.category.name }}{% else %}<span class="badge bg-secondary">Uncategorised</span>{% endif %}</td>
         <td>{{ txn.account.name }}</td>
         <td class="text-end {% if txn.amount < 0 %}money-neg{% else %}money-pos{% endif %}">${{ txn.amount|floatformat:2|intcomma }}</td>
         <td>{% if txn.cleared %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td>

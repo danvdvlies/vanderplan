@@ -3,6 +3,7 @@
 {% block heading %}{{ title }}{% endblock %}
 
 {% block content %}
+{% if subtitle %}<p class="text-muted">{{ subtitle }}</p>{% endif %}
 <div class="card"><div class="card-body">
   <form method="post" novalidate>
     {% csrf_token %}

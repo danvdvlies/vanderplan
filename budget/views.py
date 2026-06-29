@@ -20,6 +20,7 @@ from .forms import (
     CategoryForm,
     CategoryGroupForm,
     GoalForm,
+    IncomeForm,
     TransactionForm,
 )
 from .models import (
@@ -85,6 +86,7 @@ def dashboard(request):
         "prev_month": _month_param(services.add_months(month_start, -1)),
         "next_month": _month_param(services.add_months(month_start, 1)),
         "total_cash": services.total_cash_available(request.user),
+        "income_this_month": services.income_for_month(request.user, month_start),
         "assigned_this_month": assigned_this_month,
         "to_be_assigned": services.to_be_assigned(request.user, month_start),
         "bills_due_total": sum(
@@ -115,6 +117,7 @@ def budget_month(request):
         "groups": groups,
         "to_be_assigned": services.to_be_assigned(request.user, month_start),
         "total_cash": services.total_cash_available(request.user),
+        "income_this_month": services.income_for_month(request.user, month_start),
     }
     return render(request, "budget/budget_month.html", context)
 
@@ -348,11 +351,14 @@ def transaction_list(request):
     category_id = request.GET.get("category")
     month = request.GET.get("month")
     uncategorised = request.GET.get("uncategorised")
+    income_only = request.GET.get("income")
 
     if account_id:
         transactions = transactions.filter(account_id=account_id)
-    if uncategorised:
-        transactions = transactions.filter(category__isnull=True)
+    if income_only:
+        transactions = transactions.filter(is_income=True)
+    elif uncategorised:
+        transactions = transactions.filter(category__isnull=True, is_income=False)
     elif category_id:
         transactions = transactions.filter(category_id=category_id)
     if month:
@@ -376,6 +382,7 @@ def transaction_list(request):
                 "category": category_id,
                 "month": month,
                 "uncategorised": uncategorised,
+                "income": income_only,
             },
         },
     )
@@ -391,6 +398,26 @@ def transaction_create(request):
         messages.success(request, "Transaction added.")
         return redirect("transaction_list")
     return render(request, "budget/form.html", {"form": form, "title": "New Transaction"})
+
+
+@login_required
+def income_create(request):
+    """Add money to Ready to Assign via a dedicated inflow form."""
+    form = IncomeForm(request.POST or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        txn = form.save(commit=False)
+        txn.user = request.user
+        txn.is_income = True
+        txn.category = None
+        txn.amount = abs(txn.amount)
+        txn.save()
+        messages.success(request, f"Added ${txn.amount} to Ready to Assign.")
+        return redirect("dashboard")
+    return render(
+        request,
+        "budget/form.html",
+        {"form": form, "title": "Add Income", "subtitle": "Goes straight to Ready to Assign."},
+    )
 
 
 @login_required

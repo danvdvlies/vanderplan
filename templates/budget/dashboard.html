@@ -3,6 +3,7 @@
 {% block title %}Dashboard{% endblock %}
 {% block heading %}Dashboard{% endblock %}
 {% block actions %}
+  <a class="btn btn-success btn-sm me-2" href="{% url 'income_create' %}"><i class="bi bi-plus-circle"></i> Add income</a>
   <a class="btn btn-outline-secondary btn-sm" href="?month={{ prev_month }}"><i class="bi bi-chevron-left"></i></a>
   <span class="fw-semibold mx-1">{{ month_start|date:"F Y" }}</span>
   <a class="btn btn-outline-secondary btn-sm" href="?month={{ next_month }}"><i class="bi bi-chevron-right"></i></a>
@@ -21,6 +22,14 @@
   <div class="col-md-4 col-xl">
     <div class="card stat-card h-100"><div class="card-body">
       <div class="d-flex justify-content-between">
+        <div><div class="text-muted small">Income this month</div>
+          <div class="stat-value money-pos">${{ income_this_month|floatformat:2|intcomma }}</div></div>
+        <i class="bi bi-arrow-down-circle stat-icon"></i>
+      </div></div></div>
+  </div>
+  <div class="col-md-4 col-xl">
+    <div class="card stat-card h-100"><div class="card-body">
+      <div class="d-flex justify-content-between">
         <div><div class="text-muted small">Assigned this month</div>
           <div class="stat-value">${{ assigned_this_month|floatformat:2|intcomma }}</div></div>
         <i class="bi bi-pin-map stat-icon"></i>
@@ -29,7 +38,7 @@
   <div class="col-md-4 col-xl">
     <div class="card stat-card h-100"><div class="card-body">
       <div class="d-flex justify-content-between">
-        <div><div class="text-muted small">To be assigned</div>
+        <div><div class="text-muted small">Ready to assign</div>
           <div class="stat-value {% if to_be_assigned < 0 %}money-neg{% elif to_be_assigned > 0 %}money-pos{% endif %}">
             ${{ to_be_assigned|floatformat:2|intcomma }}</div></div>
         <i class="bi bi-cash-coin stat-icon"></i>

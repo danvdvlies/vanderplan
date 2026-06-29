@@ -140,8 +140,20 @@ def total_available_in_categories(user, month_start: date) -> Decimal:
 
 
 def to_be_assigned(user, month_start: date) -> Decimal:
-    """Cash not yet assigned to any category (MVP definition from the spec)."""
+    """Cash not yet assigned to any category (MVP definition from the spec).
+
+    Also surfaced in the UI as "Ready to Assign".
+    """
     return total_cash_available(user) - total_available_in_categories(user, month_start)
+
+
+def income_for_month(user, month_start: date) -> Decimal:
+    """Sum of transactions explicitly marked as income within the month."""
+    start = month_floor(month_start)
+    total = Transaction.objects.filter(
+        user=user, is_income=True, date__gte=start, date__lt=next_month_start(start)
+    ).aggregate(s=Sum("amount"))["s"]
+    return total or ZERO
 
 
 # --------------------------------------------------------------------------
