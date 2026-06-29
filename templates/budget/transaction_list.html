@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Transactions{% endblock %}
+{% block heading %}Transactions{% endblock %}
+{% block actions %}<a class="btn btn-primary btn-sm" href="{% url 'transaction_create' %}"><i class="bi bi-plus-lg"></i> Add transaction</a>{% endblock %}
+
+{% block content %}
+<div class="card mb-3"><div class="card-body">
+  <form method="get" class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label small">Account</label>
+      <select name="account" class="form-select form-select-sm">
+        <option value="">All</option>
+        {% for a in accounts %}<option value="{{ a.pk }}" {% if filters.account == a.pk|stringformat:'s' %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small">Category</label>
+      <select name="category" class="form-select form-select-sm">
+        <option value="">All</option>
+        {% for c in categories %}<option value="{{ c.pk }}" {% if filters.category == c.pk|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small">Month</label>
+      <input type="month" name="month" value="{{ filters.month }}" class="form-control form-control-sm">
+    </div>
+    <div class="col-md-2 form-check ms-2 mb-2">
+      <input type="checkbox" class="form-check-input" name="uncategorised" value="1" id="uncat" {% if filters.uncategorised %}checked{% endif %}>
+      <label class="form-check-label small" for="uncat">Uncategorised only</label>
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-sm btn-primary" type="submit">Filter</button>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'transaction_list' %}">Clear</a>
+    </div>
+  </form>
+</div></div>
+
+<div class="card"><div class="card-body">
+  <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+    <thead><tr><th>Date</th><th>Payee</th><th>Category</th><th>Account</th><th class="text-end">Amount</th><th>Cleared</th><th></th></tr></thead>
+    <tbody>
+    {% for txn in transactions %}
+      <tr>
+        <td>{{ txn.date|date:"d M Y" }}</td>
+        <td>{{ txn.payee|default:"—" }}{% if txn.memo %}<br><small class="text-muted">{{ txn.memo }}</small>{% endif %}</td>
+        <td>{% if txn.category %}{{ txn.category.name }}{% else %}<span class="badge bg-secondary">Uncategorised</span>{% endif %}</td>
+        <td>{{ txn.account.name }}</td>
+        <td class="text-end {% if txn.amount < 0 %}money-neg{% else %}money-pos{% endif %}">${{ txn.amount|floatformat:2|intcomma }}</td>
+        <td>{% if txn.cleared %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-circle text-muted"></i>{% endif %}</td>
+        <td class="text-end">
+          <a class="btn btn-sm btn-outline-secondary" href="{% url 'transaction_edit' txn.pk %}"><i class="bi bi-pencil"></i></a>
+          <a class="btn btn-sm btn-outline-danger" href="{% url 'transaction_delete' txn.pk %}"><i class="bi bi-trash"></i></a>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="7" class="text-center text-muted">No transactions match.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div></div>
+{% endblock %}

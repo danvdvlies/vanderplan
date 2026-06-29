@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Dashboard{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+{% block actions %}
+  <a class="btn btn-outline-secondary btn-sm" href="?month={{ prev_month }}"><i class="bi bi-chevron-left"></i></a>
+  <span class="fw-semibold mx-1">{{ month_start|date:"F Y" }}</span>
+  <a class="btn btn-outline-secondary btn-sm" href="?month={{ next_month }}"><i class="bi bi-chevron-right"></i></a>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-2">
+  <div class="col-md-4 col-xl">
+    <div class="card stat-card h-100"><div class="card-body">
+      <div class="d-flex justify-content-between">
+        <div><div class="text-muted small">Total cash available</div>
+          <div class="stat-value">${{ total_cash|floatformat:2|intcomma }}</div></div>
+        <i class="bi bi-wallet2 stat-icon"></i>
+      </div></div></div>
+  </div>
+  <div class="col-md-4 col-xl">
+    <div class="card stat-card h-100"><div class="card-body">
+      <div class="d-flex justify-content-between">
+        <div><div class="text-muted small">Assigned this month</div>
+          <div class="stat-value">${{ assigned_this_month|floatformat:2|intcomma }}</div></div>
+        <i class="bi bi-pin-map stat-icon"></i>
+      </div></div></div>
+  </div>
+  <div class="col-md-4 col-xl">
+    <div class="card stat-card h-100"><div class="card-body">
+      <div class="d-flex justify-content-between">
+        <div><div class="text-muted small">To be assigned</div>
+          <div class="stat-value {% if to_be_assigned < 0 %}money-neg{% elif to_be_assigned > 0 %}money-pos{% endif %}">
+            ${{ to_be_assigned|floatformat:2|intcomma }}</div></div>
+        <i class="bi bi-cash-coin stat-icon"></i>
+      </div></div></div>
+  </div>
+  <div class="col-md-4 col-xl">
+    <div class="card stat-card h-100"><div class="card-body">
+      <div class="d-flex justify-content-between">
+        <div><div class="text-muted small">Bills due this month</div>
+          <div class="stat-value">${{ bills_due_total|floatformat:2|intcomma }}</div>
+          <div class="small text-muted">{{ bills_due_count }} categor{{ bills_due_count|pluralize:"y,ies" }}</div></div>
+        <i class="bi bi-calendar-event stat-icon"></i>
+      </div></div></div>
+  </div>
+  <div class="col-md-4 col-xl">
+    <div class="card stat-card h-100"><div class="card-body">
+      <div class="d-flex justify-content-between">
+        <div><div class="text-muted small">Needs attention</div>
+          <div class="stat-value">{{ underfunded_count|add:overspent_count }}</div>
+          <div class="small text-muted">{{ overspent_count }} overspent</div></div>
+        <i class="bi bi-exclamation-triangle stat-icon"></i>
+      </div></div></div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card h-100"><div class="card-body">
+      <h2 class="h5 mb-3">Categories needing attention</h2>
+      {% if attention_rows %}
+      <div class="table-responsive"><table class="table table-sm align-middle">
+        <thead><tr><th>Category</th><th class="text-end">Available</th><th class="text-end">Needed</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for row in attention_rows %}
+          <tr>
+            <td>{{ row.category.name }}</td>
+            <td class="text-end {% if row.available < 0 %}money-neg{% endif %}">${{ row.available|floatformat:2|intcomma }}</td>
+            <td class="text-end">${{ row.needed_this_month|floatformat:2|intcomma }}</td>
+            <td>{% include "budget/_status_badge.html" with status=row.status %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+      {% else %}
+        <p class="text-muted mb-0">Everything is funded. Nice work.</p>
+      {% endif %}
+    </div></div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card mb-3"><div class="card-body">
+      <h2 class="h5 mb-3">Upcoming goals</h2>
+      {% for goal in upcoming_goals %}
+        <div class="d-flex justify-content-between py-1">
+          <span>{{ goal.category.name }}</span>
+          <span class="text-muted">{{ goal.due_date|date:"d M Y" }} · ${{ goal.target_amount|floatformat:2|intcomma }}</span>
+        </div>
+      {% empty %}
+        <p class="text-muted mb-0">No dated goals yet.</p>
+      {% endfor %}
+    </div></div>
+
+    <div class="card"><div class="card-body">
+      <h2 class="h5 mb-3">Recent transactions</h2>
+      {% for txn in recent_transactions %}
+        <div class="d-flex justify-content-between py-1">
+          <span>{{ txn.payee|default:"(no payee)" }}<br><small class="text-muted">{{ txn.date|date:"d M" }} · {{ txn.category.name|default:"Uncategorised" }}</small></span>
+          <span class="{% if txn.amount < 0 %}money-neg{% else %}money-pos{% endif %}">${{ txn.amount|floatformat:2|intcomma }}</span>
+        </div>
+      {% empty %}
+        <p class="text-muted mb-0">No transactions yet.</p>
+      {% endfor %}
+    </div></div>
+  </div>
+</div>
+{% endblock %}

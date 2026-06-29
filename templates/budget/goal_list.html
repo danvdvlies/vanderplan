@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Goals{% endblock %}
+{% block heading %}Goals{% endblock %}
+{% block actions %}<a class="btn btn-primary btn-sm" href="{% url 'goal_create' %}"><i class="bi bi-plus-lg"></i> New goal</a>{% endblock %}
+
+{% block content %}
+<div class="card"><div class="card-body">
+  <div class="table-responsive"><table class="table align-middle mb-0">
+    <thead><tr>
+      <th>Category / Goal</th><th>Due</th><th>Repeat</th>
+      <th class="text-end">Target</th><th class="text-end">Available</th>
+      <th class="text-end">Needed</th><th style="width:170px;">Funded</th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr class="{% if not row.goal.is_active %}text-muted{% endif %}">
+        <td>{{ row.goal.category.name }}{% if row.goal.name %}<br><small class="text-muted">{{ row.goal.name }}</small>{% endif %}
+          {% if not row.goal.is_active %}<span class="badge bg-secondary">Inactive</span>{% endif %}</td>
+        <td>{{ row.goal.due_date|date:"d M Y"|default:"—" }}</td>
+        <td>{% if row.goal.repeat_interval_months %}every {{ row.goal.repeat_interval_months }} mo{% else %}—{% endif %}</td>
+        <td class="text-end">${{ row.goal.target_amount|floatformat:2|intcomma }}</td>
+        <td class="text-end {% if row.available < 0 %}money-neg{% endif %}">${{ row.available|floatformat:2|intcomma }}</td>
+        <td class="text-end">${{ row.needed_this_month|floatformat:2|intcomma }}</td>
+        <td>
+          <div class="progress" style="height:18px;">
+            <div class="progress-bar {% if row.funded_percent >= 100 %}bg-success{% else %}bg-info{% endif %}"
+                 style="width: {{ row.funded_percent_bar }}%;">{{ row.funded_percent }}%</div>
+          </div>
+        </td>
+        <td class="text-end" style="white-space:nowrap;">
+          <a class="btn btn-sm btn-outline-secondary" href="{% url 'goal_edit' row.goal.pk %}"><i class="bi bi-pencil"></i></a>
+          {% if row.goal.is_repeating %}
+          <form method="post" action="{% url 'goal_advance' row.goal.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-outline-primary" type="submit" title="Advance to next due date"><i class="bi bi-fast-forward"></i></button>
+          </form>
+          {% endif %}
+          <form method="post" action="{% url 'goal_deactivate' row.goal.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-outline-secondary" type="submit">{% if row.goal.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+          </form>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="8" class="text-center text-muted">No goals yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div></div>
+{% endblock %}

@@ -1,0 +1,84 @@
+/* AdminKit-inspired layout on Bootstrap 5. */
+:root {
+  --sidebar-width: 240px;
+  --sidebar-bg: #222e3c;
+  --sidebar-link: #cdd3da;
+  --sidebar-active: #3b82f6;
+  --content-bg: #f5f7fb;
+}
+
+body {
+  background: var(--content-bg);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.wrapper { display: flex; min-height: 100vh; }
+
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  background: var(--sidebar-bg);
+  color: var(--sidebar-link);
+  transition: margin-left .2s ease;
+}
+.sidebar-collapsed .sidebar { margin-left: calc(-1 * var(--sidebar-width)); }
+
+.sidebar-brand {
+  display: block;
+  padding: 1.15rem 1.25rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+}
+.sidebar-brand i { color: var(--sidebar-active); }
+
+.sidebar-nav { list-style: none; padding: 0; margin: 0; }
+.sidebar-header {
+  padding: .8rem 1.25rem .35rem;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #6c7a91;
+}
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: .6rem 1.25rem;
+  color: var(--sidebar-link);
+  text-decoration: none;
+  font-size: .92rem;
+}
+.sidebar-link:hover { color: #fff; background: rgba(255,255,255,.05); }
+.sidebar-item.active .sidebar-link {
+  color: #fff;
+  border-left: 3px solid var(--sidebar-active);
+  background: rgba(59,130,246,.12);
+}
+
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+.topbar {
+  background: #fff;
+  box-shadow: 0 0 14px rgba(0,0,0,.04);
+  padding: .4rem 1rem;
+}
+.sidebar-toggle { font-size: 1.4rem; color: #495057; text-decoration: none; }
+
+.content { padding: 1.5rem; flex: 1; }
+
+.card { border: none; box-shadow: 0 0 14px rgba(0,0,0,.05); border-radius: .5rem; }
+.stat-card .stat-value { font-size: 1.5rem; font-weight: 600; }
+.stat-card .stat-icon { font-size: 1.7rem; opacity: .35; }
+
+.table thead th { font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; color: #6c757d; }
+.money-neg { color: #dc3545; }
+.money-pos { color: #198754; }
+
+.assign-input { max-width: 110px; }
+
+@media (max-width: 768px) {
+  .sidebar { margin-left: calc(-1 * var(--sidebar-width)); position: fixed; height: 100%; z-index: 1030; }
+  .sidebar-collapsed .sidebar { margin-left: 0; }
+}

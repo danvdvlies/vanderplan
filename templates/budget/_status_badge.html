@@ -1,0 +1,6 @@
+{% if status == "Funded" %}<span class="badge bg-success">Funded</span>
+{% elif status == "Underfunded" %}<span class="badge bg-warning text-dark">Underfunded</span>
+{% elif status == "Due now" %}<span class="badge bg-danger">Due now</span>
+{% elif status == "Overspent" %}<span class="badge bg-danger">Overspent</span>
+{% elif status == "On track" %}<span class="badge bg-info text-dark">On track</span>
+{% else %}<span class="badge bg-secondary">No goal</span>{% endif %}
