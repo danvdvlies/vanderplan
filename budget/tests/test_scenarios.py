@@ -18,21 +18,23 @@ from budget.models import (
 )
 
 User = get_user_model()
+from budget.models import Budget
 
 
 class ScenarioMathTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="pw")
-        self.account = Account.objects.create(user=self.user, name="Everyday")
-        self.group = CategoryGroup.objects.create(user=self.user, name="Group")
+        self.user_budget = Budget.objects.create(owner=self.user, is_default=True)
+        self.account = Account.objects.create(budget=self.user_budget, name="Everyday")
+        self.group = CategoryGroup.objects.create(budget=self.user_budget, name="Group")
         self.rent = Category.objects.create(
-            user=self.user, category_group=self.group, name="Rent"
+            budget=self.user_budget, category_group=self.group, name="Rent"
         )
         self.month = services.month_floor(date.today())
 
     def _scenario(self, income_override="5000.00"):
         return Scenario.objects.create(
-            user=self.user, name="New place",
+            budget=self.user_budget, name="New place",
             monthly_income_override=Decimal(income_override) if income_override else None,
         )
 
@@ -46,11 +48,11 @@ class ScenarioMathTests(TestCase):
     def test_expense_line_reduces_surplus(self):
         s = self._scenario("5000.00")
         ScenarioLine.objects.create(
-            user=self.user, scenario=s, label="Water", kind=ScenarioLine.EXPENSE,
+            budget=self.user_budget, scenario=s, label="Water", kind=ScenarioLine.EXPENSE,
             amount=Decimal("40.00"),
         )
         ScenarioLine.objects.create(
-            user=self.user, scenario=s, label="NBN", kind=ScenarioLine.EXPENSE,
+            budget=self.user_budget, scenario=s, label="NBN", kind=ScenarioLine.EXPENSE,
             amount=Decimal("80.00"),
         )
         summary = services.scenario_summary(s)
@@ -60,7 +62,7 @@ class ScenarioMathTests(TestCase):
     def test_income_line_increases_surplus(self):
         s = self._scenario("5000.00")
         ScenarioLine.objects.create(
-            user=self.user, scenario=s, label="Girls contribute",
+            budget=self.user_budget, scenario=s, label="Girls contribute",
             kind=ScenarioLine.INCOME, amount=Decimal("600.00"),
         )
         summary = services.scenario_summary(s)
@@ -70,7 +72,7 @@ class ScenarioMathTests(TestCase):
     def test_one_off_is_upfront_not_monthly(self):
         s = self._scenario("5000.00")
         ScenarioLine.objects.create(
-            user=self.user, scenario=s, label="Bond", kind=ScenarioLine.ONE_OFF,
+            budget=self.user_budget, scenario=s, label="Bond", kind=ScenarioLine.ONE_OFF,
             amount=Decimal("2400.00"),
         )
         summary = services.scenario_summary(s)
@@ -83,13 +85,13 @@ class ScenarioMathTests(TestCase):
         # Current rent averages 1800/mo over the last 3 months.
         for i in range(3):
             Transaction.objects.create(
-                user=self.user, account=self.account,
+                budget=self.user_budget, account=self.account,
                 date=services.add_months(self.month, -i),
                 amount=Decimal("-1800.00"), category=self.rent,
             )
         s = self._scenario("5000.00")
         ScenarioLine.objects.create(
-            user=self.user, scenario=s, label="Rent (new place)",
+            budget=self.user_budget, scenario=s, label="Rent (new place)",
             kind=ScenarioLine.EXPENSE, amount=Decimal("2400.00"),
             category=self.rent, replaces_current=True,
         )
@@ -100,7 +102,7 @@ class ScenarioMathTests(TestCase):
     def test_unaffordable_flag(self):
         s = self._scenario("1000.00")
         ScenarioLine.objects.create(
-            user=self.user, scenario=s, label="Rent", kind=ScenarioLine.EXPENSE,
+            budget=self.user_budget, scenario=s, label="Rent", kind=ScenarioLine.EXPENSE,
             amount=Decimal("2400.00"),
         )
         summary = services.scenario_summary(s)
@@ -109,7 +111,7 @@ class ScenarioMathTests(TestCase):
 
     def test_derived_income_baseline_used_without_override(self):
         Transaction.objects.create(
-            user=self.user, account=self.account, date=self.month,
+            budget=self.user_budget, account=self.account, date=self.month,
             amount=Decimal("3000.00"), is_income=True,
         )
         s = self._scenario(income_override=None)
@@ -120,18 +122,19 @@ class ScenarioMathTests(TestCase):
     def test_scenario_does_not_touch_real_budget(self):
         s = self._scenario("5000.00")
         ScenarioLine.objects.create(
-            user=self.user, scenario=s, label="Rent", kind=ScenarioLine.EXPENSE,
+            budget=self.user_budget, scenario=s, label="Rent", kind=ScenarioLine.EXPENSE,
             amount=Decimal("2400.00"),
         )
         services.scenario_summary(s)
         # No transactions or assignments were created by planning.
-        self.assertFalse(Transaction.objects.filter(user=self.user).exists())
-        self.assertEqual(services.to_be_assigned(self.user, self.month), Decimal("0.00"))
+        self.assertFalse(Transaction.objects.filter(budget=self.user_budget).exists())
+        self.assertEqual(services.to_be_assigned(self.user_budget, self.month), Decimal("0.00"))
 
 
 class ScenarioViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="pw")
+        self.user_budget = Budget.objects.create(owner=self.user, is_default=True)
         self.client.login(username="alice", password="pw")
 
     def test_create_and_view_scenario(self):
@@ -139,14 +142,14 @@ class ScenarioViewTests(TestCase):
             reverse("scenario_create"),
             {"name": "Bigger place", "notes": "", "is_active": "on"},
         )
-        scenario = Scenario.objects.get(user=self.user)
+        scenario = Scenario.objects.get(budget=self.user_budget)
         self.assertRedirects(resp, reverse("scenario_detail", args=[scenario.pk]))
         page = self.client.get(reverse("scenario_detail", args=[scenario.pk]))
         self.assertContains(page, "Bigger place")
 
     def test_add_line_via_view(self):
         scenario = Scenario.objects.create(
-            user=self.user, name="S", monthly_income_override=Decimal("5000")
+            budget=self.user_budget, name="S", monthly_income_override=Decimal("5000")
         )
         self.client.post(
             reverse("scenario_line_create", args=[scenario.pk]),
@@ -156,6 +159,7 @@ class ScenarioViewTests(TestCase):
 
     def test_cannot_view_other_users_scenario(self):
         bob = User.objects.create_user("bob", password="pw")
-        bob_s = Scenario.objects.create(user=bob, name="Bob plan")
+        bob_budget = Budget.objects.create(owner=bob, is_default=True)
+        bob_s = Scenario.objects.create(budget=bob_budget, name="Bob plan")
         resp = self.client.get(reverse("scenario_detail", args=[bob_s.pk]))
         self.assertEqual(resp.status_code, 404)

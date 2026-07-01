@@ -32,7 +32,7 @@ def _truthy(value: str) -> bool:
     return value.strip().lower() in _TRUTHY
 
 
-def analyze_csv(text: str, user, account) -> list[dict]:
+def analyze_csv(text: str, budget, account) -> list[dict]:
     """Parse CSV text into classified rows (no database writes).
 
     Each row dict carries the resolved values plus `status` ("ok"/"error"),
@@ -40,7 +40,7 @@ def analyze_csv(text: str, user, account) -> list[dict]:
     given but didn't match — that row still imports as Uncategorised).
     """
     categories = {
-        c.name.lower(): c for c in Category.objects.filter(user=user)
+        c.name.lower(): c for c in Category.objects.filter(budget=budget)
     }
     rows = []
     reader = csv.DictReader(io.StringIO(text))
@@ -75,7 +75,7 @@ def analyze_csv(text: str, user, account) -> list[dict]:
         duplicate = False
         if error is None:
             duplicate = Transaction.objects.filter(
-                user=user, account=account, date=parsed_date,
+                budget=budget, account=account, date=parsed_date,
                 amount=amount, payee=payee,
             ).exists()
 

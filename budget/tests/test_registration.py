@@ -7,6 +7,7 @@ from django.urls import reverse
 from budget.models import Category, CategoryGroup
 
 User = get_user_model()
+from budget.models import Budget
 
 
 class RegistrationTests(TestCase):

@@ -1,6 +1,6 @@
-"""Forms for budgeting CRUD. Querysets that reference other user-owned models
-are scoped to the logged-in user in __init__ so a user can never attach their
-data to another user's records."""
+"""Forms for budgeting CRUD. Querysets that reference other budget-owned models
+are scoped to the active budget in __init__ so a user can never attach their
+data to another budget's records."""
 
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 
 from .models import (
     Account,
+    Budget,
     Category,
     CategoryGroup,
     Goal,
@@ -30,6 +31,16 @@ class RegisterForm(UserCreationForm):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             field.widget.attrs.setdefault("class", "form-control")
+
+
+class BudgetForm(forms.ModelForm):
+    class Meta:
+        model = Budget
+        fields = ["name"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["name"].widget.attrs.setdefault("class", "form-control")
 
 
 class BootstrapModelForm(forms.ModelForm):
@@ -64,11 +75,11 @@ class CategoryForm(BootstrapModelForm):
         model = Category
         fields = ["category_group", "name", "sort_order", "is_active", "is_hidden"]
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, budget=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if user is not None:
+        if budget is not None:
             self.fields["category_group"].queryset = CategoryGroup.objects.filter(
-                user=user, is_active=True
+                budget=budget, is_active=True
             )
 
 
@@ -81,14 +92,14 @@ class TransactionForm(BootstrapModelForm):
         ]
         widgets = {"date": forms.DateInput(attrs={"type": "date"})}
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, budget=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if user is not None:
+        if budget is not None:
             self.fields["account"].queryset = Account.objects.filter(
-                user=user, is_active=True
+                budget=budget, is_active=True
             )
             self.fields["category"].queryset = Category.objects.filter(
-                user=user, is_active=True
+                budget=budget, is_active=True
             )
         self.fields["category"].required = False
         self.fields["category"].empty_label = "Uncategorised"
@@ -110,11 +121,11 @@ class IncomeForm(BootstrapModelForm):
         fields = ["account", "date", "payee", "amount", "memo"]
         widgets = {"date": forms.DateInput(attrs={"type": "date"})}
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, budget=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if user is not None:
+        if budget is not None:
             self.fields["account"].queryset = Account.objects.filter(
-                user=user, is_active=True
+                budget=budget, is_active=True
             )
         self.fields["payee"].label = "Source"
         self.fields["amount"].help_text = "Enter a positive amount."
@@ -137,11 +148,11 @@ class CsvImportForm(forms.Form):
         help_text="Skip rows matching an existing date + amount + payee on this account.",
     )
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, budget=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if user is not None:
+        if budget is not None:
             self.fields["account"].queryset = Account.objects.filter(
-                user=user, is_active=True
+                budget=budget, is_active=True
             )
         self.fields["account"].widget.attrs.setdefault("class", "form-select")
         self.fields["csv_file"].widget.attrs.setdefault("class", "form-control")
@@ -162,11 +173,11 @@ class GoalForm(BootstrapModelForm):
         ]
         widgets = {"due_date": forms.DateInput(attrs={"type": "date"})}
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, budget=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if user is not None:
+        if budget is not None:
             self.fields["category"].queryset = Category.objects.filter(
-                user=user, is_active=True
+                budget=budget, is_active=True
             )
 
 
@@ -182,11 +193,11 @@ class ScenarioLineForm(BootstrapModelForm):
         model = ScenarioLine
         fields = ["label", "kind", "amount", "category", "replaces_current"]
 
-    def __init__(self, *args, user=None, **kwargs):
+    def __init__(self, *args, budget=None, **kwargs):
         super().__init__(*args, **kwargs)
-        if user is not None:
+        if budget is not None:
             self.fields["category"].queryset = Category.objects.filter(
-                user=user, is_active=True
+                budget=budget, is_active=True
             )
         self.fields["category"].required = False
         self.fields["category"].empty_label = "— none —"

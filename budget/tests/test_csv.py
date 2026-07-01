@@ -12,6 +12,7 @@ from budget import csv_io
 from budget.models import Account, Category, CategoryGroup, Transaction
 
 User = get_user_model()
+from budget.models import Budget
 
 HEADER = "date,account,payee,category,amount,memo,cleared,is_income\n"
 
@@ -19,18 +20,19 @@ HEADER = "date,account,payee,category,amount,memo,cleared,is_income\n"
 class CsvExportTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="pw")
-        self.account = Account.objects.create(user=self.user, name="Everyday")
-        self.other = Account.objects.create(user=self.user, name="Savings")
-        self.group = CategoryGroup.objects.create(user=self.user, name="Group")
+        self.user_budget = Budget.objects.create(owner=self.user, is_default=True)
+        self.account = Account.objects.create(budget=self.user_budget, name="Everyday")
+        self.other = Account.objects.create(budget=self.user_budget, name="Savings")
+        self.group = CategoryGroup.objects.create(budget=self.user_budget, name="Group")
         self.cat = Category.objects.create(
-            user=self.user, category_group=self.group, name="Groceries"
+            budget=self.user_budget, category_group=self.group, name="Groceries"
         )
         Transaction.objects.create(
-            user=self.user, account=self.account, date=date(2026, 6, 10),
+            budget=self.user_budget, account=self.account, date=date(2026, 6, 10),
             amount=Decimal("-25.50"), category=self.cat, payee="Market",
         )
         Transaction.objects.create(
-            user=self.user, account=self.other, date=date(2026, 6, 11),
+            budget=self.user_budget, account=self.other, date=date(2026, 6, 11),
             amount=Decimal("100.00"), payee="Other acct",
         )
         self.client.login(username="alice", password="pw")
@@ -59,10 +61,11 @@ class CsvExportTests(TestCase):
 class CsvAnalyzeTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="pw")
-        self.account = Account.objects.create(user=self.user, name="Everyday")
-        self.group = CategoryGroup.objects.create(user=self.user, name="Group")
+        self.user_budget = Budget.objects.create(owner=self.user, is_default=True)
+        self.account = Account.objects.create(budget=self.user_budget, name="Everyday")
+        self.group = CategoryGroup.objects.create(budget=self.user_budget, name="Group")
         self.cat = Category.objects.create(
-            user=self.user, category_group=self.group, name="Groceries"
+            budget=self.user_budget, category_group=self.group, name="Groceries"
         )
 
     def test_classifies_ok_error_and_unmatched(self):
@@ -74,7 +77,7 @@ class CsvAnalyzeTests(TestCase):
             + "not-a-date,Everyday,Bad,Groceries,-1.00,,0,0\n"     # error
             + "2026-06-13,Everyday,Bad2,Groceries,xyz,,0,0\n"      # error amount
         )
-        rows = csv_io.analyze_csv(text, self.user, self.account)
+        rows = csv_io.analyze_csv(text, self.user_budget, self.account)
         self.assertEqual(len(rows), 5)
         self.assertEqual(rows[0]["status"], "ok")
         self.assertEqual(rows[0]["category"], self.cat)
@@ -88,21 +91,22 @@ class CsvAnalyzeTests(TestCase):
 
     def test_duplicate_detection(self):
         Transaction.objects.create(
-            user=self.user, account=self.account, date=date(2026, 6, 10),
+            budget=self.user_budget, account=self.account, date=date(2026, 6, 10),
             amount=Decimal("-25.50"), payee="Market",
         )
         text = HEADER + "2026-06-10,Everyday,Market,,-25.50,,0,0\n"
-        rows = csv_io.analyze_csv(text, self.user, self.account)
+        rows = csv_io.analyze_csv(text, self.user_budget, self.account)
         self.assertTrue(rows[0]["duplicate"])
 
 
 class CsvImportViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="pw")
-        self.account = Account.objects.create(user=self.user, name="Everyday")
-        self.group = CategoryGroup.objects.create(user=self.user, name="Group")
+        self.user_budget = Budget.objects.create(owner=self.user, is_default=True)
+        self.account = Account.objects.create(budget=self.user_budget, name="Everyday")
+        self.group = CategoryGroup.objects.create(budget=self.user_budget, name="Group")
         self.cat = Category.objects.create(
-            user=self.user, category_group=self.group, name="Groceries"
+            budget=self.user_budget, category_group=self.group, name="Groceries"
         )
         self.client.login(username="alice", password="pw")
 
@@ -127,7 +131,7 @@ class CsvImportViewTests(TestCase):
             {"confirm": "1", "account": self.account.pk, "skip_duplicates": "1", "csv_text": text},
         )
         self.assertRedirects(commit, reverse("transaction_list"))
-        self.assertEqual(Transaction.objects.filter(user=self.user).count(), 2)
+        self.assertEqual(Transaction.objects.filter(budget=self.user_budget).count(), 2)
         groceries = Transaction.objects.get(payee="Market")
         self.assertEqual(groceries.category, self.cat)
         self.assertTrue(groceries.cleared)
@@ -135,7 +139,7 @@ class CsvImportViewTests(TestCase):
 
     def test_commit_skips_duplicates_when_requested(self):
         Transaction.objects.create(
-            user=self.user, account=self.account, date=date(2026, 6, 10),
+            budget=self.user_budget, account=self.account, date=date(2026, 6, 10),
             amount=Decimal("-25.50"), payee="Market",
         )
         text = HEADER + "2026-06-10,Everyday,Market,,-25.50,,0,0\n"
@@ -164,7 +168,8 @@ class CsvImportViewTests(TestCase):
 
     def test_cannot_import_into_other_users_account(self):
         bob = User.objects.create_user("bob", password="pw")
-        bob_acct = Account.objects.create(user=bob, name="Bob")
+        bob_budget = Budget.objects.create(owner=bob, is_default=True)
+        bob_acct = Account.objects.create(budget=bob_budget, name="Bob")
         text = HEADER + "2026-06-10,Bob,X,,-1.00,,0,0\n"
         resp = self.client.post(
             reverse("transaction_import"),

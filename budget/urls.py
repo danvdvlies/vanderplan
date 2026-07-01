@@ -4,6 +4,13 @@ from . import views
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
+    # Budgets (multiple budgets)
+    path("budgets/", views.budget_list, name="budget_list"),
+    path("budgets/new/", views.budget_new, name="budget_new"),
+    path("budgets/<int:pk>/switch/", views.budget_switch, name="budget_switch"),
+    path("budgets/<int:pk>/rename/", views.budget_rename, name="budget_rename"),
+    path("budgets/<int:pk>/default/", views.budget_set_default, name="budget_set_default"),
+    path("budgets/<int:pk>/delete/", views.budget_delete, name="budget_delete"),
     # Budget month
     path("budget/", views.budget_month, name="budget_month"),
     path("budget/assign/", views.budget_assign, name="budget_assign"),

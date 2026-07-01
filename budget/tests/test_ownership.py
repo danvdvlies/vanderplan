@@ -10,18 +10,21 @@ from django.urls import reverse
 from budget.models import Account, Category, CategoryGroup
 
 User = get_user_model()
+from budget.models import Budget
 
 
 class OwnershipTests(TestCase):
     def setUp(self):
         self.alice = User.objects.create_user("alice", password="pw")
+        self.alice_budget = Budget.objects.create(owner=self.alice, is_default=True)
         self.bob = User.objects.create_user("bob", password="pw")
+        self.bob_budget = Budget.objects.create(owner=self.bob, is_default=True)
         self.bob_account = Account.objects.create(
-            user=self.bob, name="Bob secret", starting_balance=Decimal("999.00")
+            budget=self.bob_budget, name="Bob secret", starting_balance=Decimal("999.00")
         )
-        group = CategoryGroup.objects.create(user=self.bob, name="Bob group")
+        group = CategoryGroup.objects.create(budget=self.bob_budget, name="Bob group")
         self.bob_category = Category.objects.create(
-            user=self.bob, category_group=group, name="Bob category"
+            budget=self.bob_budget, category_group=group, name="Bob category"
         )
 
     def test_login_required_redirects_anonymous(self):
@@ -50,5 +53,5 @@ class OwnershipTests(TestCase):
     def test_total_cash_is_per_user(self):
         from budget import services
 
-        self.assertEqual(services.total_cash_available(self.alice), Decimal("0.00"))
-        self.assertEqual(services.total_cash_available(self.bob), Decimal("999.00"))
+        self.assertEqual(services.total_cash_available(self.alice_budget), Decimal("0.00"))
+        self.assertEqual(services.total_cash_available(self.bob_budget), Decimal("999.00"))

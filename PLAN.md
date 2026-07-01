@@ -67,14 +67,37 @@ without touching it.
 - [x] Read-only over the real budget — never writes accounts/transactions/
       assignments. Tests cover the math + ownership.
 
-## 5. Multiple budgets / the girls' own budget — FUTURE (not started)
+## 5. Multiple budgets / the girls' own budget — IN PROGRESS
 
-The bigger one: independent ledgers a user can switch between (and eventually
-share). This is a real refactor — a `Budget` container owning every model, a
-`budget` FK on each, active-budget filtering everywhere, a switcher, and
-duplicate-budget. Best planned as its own round; overlaps with the deferred
-multi-user / sharing direction.
+Decisions: (1) scope by `budget`; keep `user` on rows as the creator/audit
+reference (no delete). (2) Support both a shared family budget *and* each girl
+her own budget with goals — both fall out of membership. (3) Invite by existing
+username. (4) Defer duplicate-budget and per-budget currency.
+
+### Phase A — Budget container (multiple budgets, single user)  — DONE
+- [x] `Budget(owner, name, is_default)` model.
+- [x] `budget` FK on every domain model; `user` retained as nullable
+      creator/audit. Budget-based unique constraints.
+- [x] Migrations 0005-0008: schema, data backfill (one default Budget per user),
+      make budget required, make user nullable.
+- [x] Active budget via session + `ActiveBudgetMiddleware` (`request.budget`);
+      top-bar switcher; budgets manage page (create / rename / set default /
+      delete, with last-budget guard).
+- [x] Services/views/forms scoped by budget; new budgets seed starter categories.
+- [x] All tests updated to a budget context + new test_budgets (isolation,
+      switching, guards). 107 tests green on SQLite and PostgreSQL.
+
+### Phase B — Sharing, roles & auth hardening
+- [ ] `BudgetMembership(budget, user, role)` — owner / editor / viewer.
+- [ ] Access by membership; viewer = read-only; owner manages members.
+- [ ] Invite by existing username; Members page.
+- [ ] **Folded-in auth/security** (these arrive with real multi-user):
+      - [ ] Self-service password reset + change-password views.
+      - [ ] Email backend (SMTP/provider) for reset links.
+      - [ ] `django-axes` login rate-limiting / lockout (brute-force protection).
+      - [ ] Production checklist: registration closed by default, real
+            SECRET_KEY, HTTPS enforced (already wired), optional 2FA.
 
 ---
 
-Scenario planner shipped; multiple budgets is the next planned feature.
+Scenario planner shipped; Phase A of multiple-budgets is in progress.

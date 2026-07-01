@@ -13,7 +13,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
-from budget.models import Account, Goal
+from budget.models import Account, Budget, Goal
 from budget.starter import create_starter_categories
 
 
@@ -41,6 +41,11 @@ class Command(BaseCommand):
                 )
             )
 
+        # Default budget (holds all the seeded data)
+        budget, _ = Budget.objects.get_or_create(
+            owner=user, is_default=True, defaults={"name": "My Budget"}
+        )
+
         # Accounts
         accounts = {
             "Everyday Account": Account.EVERYDAY,
@@ -48,18 +53,22 @@ class Command(BaseCommand):
         }
         for name, acct_type in accounts.items():
             Account.objects.get_or_create(
-                user=user,
+                budget=budget,
                 name=name,
-                defaults={"account_type": acct_type, "starting_balance": Decimal("0.00")},
+                defaults={
+                    "account_type": acct_type,
+                    "starting_balance": Decimal("0.00"),
+                    "user": user,
+                },
             )
 
         # Groups and their categories (shared with self-service registration)
-        categories = create_starter_categories(user)
+        categories = create_starter_categories(budget)
 
         # Example goal: Car Registration, $220, due this month, repeats quarterly
         today = date.today()
         Goal.objects.get_or_create(
-            user=user,
+            budget=budget,
             category=categories["Car Registration"],
             name="Car Registration",
             defaults={
@@ -67,6 +76,7 @@ class Command(BaseCommand):
                 "target_amount": Decimal("220.00"),
                 "due_date": today,
                 "repeat_interval_months": 3,
+                "user": user,
             },
         )
 

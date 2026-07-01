@@ -11,29 +11,31 @@ from budget import services
 from budget.models import Account, BudgetAssignment, Category, CategoryGroup, Transaction
 
 User = get_user_model()
+from budget.models import Budget
 
 
 class CategoryDetailTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="pw")
-        self.account = Account.objects.create(user=self.user, name="Everyday")
-        self.group = CategoryGroup.objects.create(user=self.user, name="Group")
+        self.user_budget = Budget.objects.create(owner=self.user, is_default=True)
+        self.account = Account.objects.create(budget=self.user_budget, name="Everyday")
+        self.group = CategoryGroup.objects.create(budget=self.user_budget, name="Group")
         self.category = Category.objects.create(
-            user=self.user, category_group=self.group, name="Groceries"
+            budget=self.user_budget, category_group=self.group, name="Groceries"
         )
         self.month = services.month_floor(date.today())
 
     def test_history_tracks_assigned_activity_available(self):
-        bm = services.get_or_create_budget_month(self.user, self.month)
+        bm = services.get_or_create_budget_month(self.user_budget, self.month)
         BudgetAssignment.objects.create(
-            user=self.user, budget_month=bm, category=self.category,
+            budget=self.user_budget, budget_month=bm, category=self.category,
             assigned_amount=Decimal("200.00"),
         )
         Transaction.objects.create(
-            user=self.user, account=self.account, date=self.month,
+            budget=self.user_budget, account=self.account, date=self.month,
             amount=Decimal("-50.00"), category=self.category,
         )
-        history = services.category_history(self.user, self.category, 6)
+        history = services.category_history(self.user_budget, self.category, 6)
         self.assertEqual(len(history), 6)
         current = history[-1]
         self.assertEqual(current["month"], self.month)
@@ -43,7 +45,7 @@ class CategoryDetailTests(TestCase):
 
     def test_detail_page_renders_with_transactions(self):
         Transaction.objects.create(
-            user=self.user, account=self.account, date=self.month,
+            budget=self.user_budget, account=self.account, date=self.month,
             amount=Decimal("-50.00"), category=self.category, payee="Market",
         )
         self.client.login(username="alice", password="pw")
@@ -55,14 +57,14 @@ class CategoryDetailTests(TestCase):
 
     def test_detail_only_shows_this_categorys_transactions(self):
         other = Category.objects.create(
-            user=self.user, category_group=self.group, name="Fuel"
+            budget=self.user_budget, category_group=self.group, name="Fuel"
         )
         Transaction.objects.create(
-            user=self.user, account=self.account, date=self.month,
+            budget=self.user_budget, account=self.account, date=self.month,
             amount=Decimal("-10.00"), category=self.category, payee="InGroceries",
         )
         Transaction.objects.create(
-            user=self.user, account=self.account, date=self.month,
+            budget=self.user_budget, account=self.account, date=self.month,
             amount=Decimal("-99.00"), category=other, payee="InFuel",
         )
         self.client.login(username="alice", password="pw")
@@ -72,9 +74,10 @@ class CategoryDetailTests(TestCase):
 
     def test_cannot_view_other_users_category(self):
         bob = User.objects.create_user("bob", password="pw")
+        bob_budget = Budget.objects.create(owner=bob, is_default=True)
         bob_cat = Category.objects.create(
-            user=bob,
-            category_group=CategoryGroup.objects.create(user=bob, name="G"),
+            budget=bob_budget,
+            category_group=CategoryGroup.objects.create(budget=bob_budget, name="G"),
             name="Bob cat",
         )
         self.client.login(username="alice", password="pw")

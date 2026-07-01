@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Budgets{% endblock %}
+{% block heading %}Your budgets{% endblock %}
+{% block actions %}<a class="btn btn-primary btn-sm" href="{% url 'budget_new' %}"><i class="bi bi-plus-lg"></i> New budget</a>{% endblock %}
+
+{% block content %}
+<div class="card mb-3"><div class="card-body">
+  <p class="text-muted mb-0">
+    Keep separate budgets for different purposes — your household budget, or a
+    budget each for the girls. Switch between them from the top bar. Each budget
+    has its own accounts, categories, transactions and goals.
+  </p>
+</div></div>
+
+<div class="card"><div class="card-body">
+  <table class="table align-middle mb-0">
+    <thead><tr><th>Budget</th><th></th><th class="text-end"></th></tr></thead>
+    <tbody>
+    {% for b in budgets %}
+      <tr>
+        <td>
+          {{ b.name }}
+          {% if b.pk == active_budget.pk %}<span class="badge bg-primary">Active</span>{% endif %}
+          {% if b.is_default %}<span class="badge bg-secondary">Default</span>{% endif %}
+        </td>
+        <td>
+          {% if b.pk != active_budget.pk %}
+          <form method="post" action="{% url 'budget_switch' b.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-outline-primary" type="submit">Switch to this</button>
+          </form>
+          {% endif %}
+        </td>
+        <td class="text-end" style="white-space:nowrap;">
+          {% if not b.is_default %}
+          <form method="post" action="{% url 'budget_set_default' b.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-outline-secondary" type="submit">Make default</button>
+          </form>
+          {% endif %}
+          <a class="btn btn-sm btn-outline-secondary" href="{% url 'budget_rename' b.pk %}"><i class="bi bi-pencil"></i></a>
+          <a class="btn btn-sm btn-outline-danger" href="{% url 'budget_delete' b.pk %}"><i class="bi bi-trash"></i></a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endblock %}

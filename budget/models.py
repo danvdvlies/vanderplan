@@ -1,8 +1,9 @@
 """
 Data models for the zero-based budgeting app.
 
-Every user-owned model carries a `user` FK from day one so the app can become
-multi-user without a migration scramble. All money is DecimalField — never float.
+All budgeting data belongs to a `Budget` (scoping is by `budget`). Domain models
+also keep a nullable `user` FK as the creator/audit reference. All money is
+DecimalField — never float.
 """
 
 from decimal import Decimal
@@ -24,6 +25,28 @@ class TimeStampedModel(models.Model):
         abstract = True
 
 
+class Budget(TimeStampedModel):
+    """A budget container. All budgeting data belongs to a Budget.
+
+    A user can own several budgets and switch between them. (Phase B adds
+    membership so several users can share one budget.) Domain models keep a
+    `user` FK as the creator/audit reference, but scoping is by `budget`.
+    """
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="owned_budgets"
+    )
+    name = models.CharField(max_length=120)
+    is_default = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["name"]
+        indexes = [models.Index(fields=["owner", "is_default"])]
+
+    def __str__(self):
+        return self.name
+
+
 class Account(TimeStampedModel):
     EVERYDAY = "everyday"
     SAVINGS = "savings"
@@ -39,7 +62,10 @@ class Account(TimeStampedModel):
     ]
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="accounts"
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE, related_name="accounts"
+    )
+    budget = models.ForeignKey(
+        Budget, on_delete=models.CASCADE, related_name="accounts"
     )
     name = models.CharField(max_length=120)
     account_type = models.CharField(max_length=20, choices=ACCOUNT_TYPES, default=EVERYDAY)
@@ -48,7 +74,7 @@ class Account(TimeStampedModel):
 
     class Meta:
         ordering = ["name"]
-        indexes = [models.Index(fields=["user", "is_active"])]
+        indexes = [models.Index(fields=["budget", "is_active"])]
 
     def __str__(self):
         return self.name
@@ -69,7 +95,10 @@ class Account(TimeStampedModel):
 
 class CategoryGroup(TimeStampedModel):
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="category_groups"
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE, related_name="category_groups"
+    )
+    budget = models.ForeignKey(
+        Budget, on_delete=models.CASCADE, related_name="category_groups"
     )
     name = models.CharField(max_length=120)
     sort_order = models.PositiveIntegerField(default=0)
@@ -77,7 +106,7 @@ class CategoryGroup(TimeStampedModel):
 
     class Meta:
         ordering = ["sort_order", "name"]
-        indexes = [models.Index(fields=["user", "sort_order"])]
+        indexes = [models.Index(fields=["budget", "sort_order"])]
 
     def __str__(self):
         return self.name
@@ -85,7 +114,10 @@ class CategoryGroup(TimeStampedModel):
 
 class Category(TimeStampedModel):
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="categories"
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE, related_name="categories"
+    )
+    budget = models.ForeignKey(
+        Budget, on_delete=models.CASCADE, related_name="categories"
     )
     category_group = models.ForeignKey(
         CategoryGroup, on_delete=models.CASCADE, related_name="categories"
@@ -98,7 +130,7 @@ class Category(TimeStampedModel):
     class Meta:
         ordering = ["sort_order", "name"]
         verbose_name_plural = "categories"
-        indexes = [models.Index(fields=["user", "category_group", "sort_order"])]
+        indexes = [models.Index(fields=["budget", "category_group", "sort_order"])]
 
     def __str__(self):
         return self.name
@@ -108,7 +140,10 @@ class BudgetMonth(TimeStampedModel):
     """A single calendar month for a user. month_start is always day 1."""
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="budget_months"
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE, related_name="budget_months"
+    )
+    budget = models.ForeignKey(
+        Budget, on_delete=models.CASCADE, related_name="budget_months"
     )
     month_start = models.DateField(help_text="First day of the month.")
 
@@ -116,10 +151,10 @@ class BudgetMonth(TimeStampedModel):
         ordering = ["month_start"]
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "month_start"], name="unique_user_month"
+                fields=["budget", "month_start"], name="unique_budget_month"
             )
         ]
-        indexes = [models.Index(fields=["user", "month_start"])]
+        indexes = [models.Index(fields=["budget", "month_start"])]
 
     def __str__(self):
         return self.month_start.strftime("%B %Y")
@@ -129,7 +164,10 @@ class BudgetAssignment(TimeStampedModel):
     """Money assigned to a category for a given month."""
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="assignments"
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE, related_name="assignments"
+    )
+    budget = models.ForeignKey(
+        Budget, on_delete=models.CASCADE, related_name="assignments"
     )
     budget_month = models.ForeignKey(
         BudgetMonth, on_delete=models.CASCADE, related_name="assignments"
@@ -144,11 +182,11 @@ class BudgetAssignment(TimeStampedModel):
         ordering = ["category__sort_order"]
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "budget_month", "category"],
-                name="unique_user_month_category",
+                fields=["budget_month", "category"],
+                name="unique_month_category",
             )
         ]
-        indexes = [models.Index(fields=["user", "budget_month"])]
+        indexes = [models.Index(fields=["budget", "budget_month"])]
 
     def __str__(self):
         return f"{self.category} / {self.budget_month}: {self.assigned_amount}"
@@ -158,7 +196,10 @@ class Transaction(TimeStampedModel):
     """A manual transaction. Expenses negative, income positive."""
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="transactions"
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE, related_name="transactions"
+    )
+    budget = models.ForeignKey(
+        Budget, on_delete=models.CASCADE, related_name="transactions"
     )
     account = models.ForeignKey(
         Account, on_delete=models.CASCADE, related_name="transactions"
@@ -186,9 +227,9 @@ class Transaction(TimeStampedModel):
     class Meta:
         ordering = ["-date", "-created_at"]
         indexes = [
-            models.Index(fields=["user", "date"]),
-            models.Index(fields=["user", "category", "date"]),
-            models.Index(fields=["user", "account", "date"]),
+            models.Index(fields=["budget", "date"]),
+            models.Index(fields=["budget", "category", "date"]),
+            models.Index(fields=["budget", "account", "date"]),
         ]
 
     def __str__(self):
@@ -206,7 +247,10 @@ class Goal(TimeStampedModel):
     ]
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="goals"
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE, related_name="goals"
+    )
+    budget = models.ForeignKey(
+        Budget, on_delete=models.CASCADE, related_name="goals"
     )
     category = models.ForeignKey(
         Category, on_delete=models.CASCADE, related_name="goals"
@@ -224,7 +268,7 @@ class Goal(TimeStampedModel):
 
     class Meta:
         ordering = ["due_date", "category__sort_order"]
-        indexes = [models.Index(fields=["user", "is_active", "due_date"])]
+        indexes = [models.Index(fields=["budget", "is_active", "due_date"])]
 
     def __str__(self):
         return self.name or f"Goal for {self.category}"
@@ -243,7 +287,10 @@ class Scenario(TimeStampedModel):
     """
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="scenarios"
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE, related_name="scenarios"
+    )
+    budget = models.ForeignKey(
+        Budget, on_delete=models.CASCADE, related_name="scenarios"
     )
     name = models.CharField(max_length=120)
     notes = models.TextField(blank=True)
@@ -257,7 +304,7 @@ class Scenario(TimeStampedModel):
 
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["user", "is_active"])]
+        indexes = [models.Index(fields=["budget", "is_active"])]
 
     def __str__(self):
         return self.name
@@ -274,7 +321,10 @@ class ScenarioLine(TimeStampedModel):
     ]
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="scenario_lines"
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.CASCADE, related_name="scenario_lines"
+    )
+    budget = models.ForeignKey(
+        Budget, on_delete=models.CASCADE, related_name="scenario_lines"
     )
     scenario = models.ForeignKey(
         Scenario, on_delete=models.CASCADE, related_name="lines"
@@ -296,7 +346,7 @@ class ScenarioLine(TimeStampedModel):
 
     class Meta:
         ordering = ["kind", "label"]
-        indexes = [models.Index(fields=["user", "scenario"])]
+        indexes = [models.Index(fields=["budget", "scenario"])]
 
     def __str__(self):
         return f"{self.label} ({self.get_kind_display()})"

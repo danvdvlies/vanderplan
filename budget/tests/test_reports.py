@@ -11,26 +11,28 @@ from budget import services
 from budget.models import Account, Category, CategoryGroup, Transaction
 
 User = get_user_model()
+from budget.models import Budget
 
 
 class ReportsTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="pw")
+        self.user_budget = Budget.objects.create(owner=self.user, is_default=True)
         self.account = Account.objects.create(
-            user=self.user, name="Everyday", starting_balance=Decimal("100.00")
+            budget=self.user_budget, name="Everyday", starting_balance=Decimal("100.00")
         )
-        self.group = CategoryGroup.objects.create(user=self.user, name="Group")
+        self.group = CategoryGroup.objects.create(budget=self.user_budget, name="Group")
         self.groceries = Category.objects.create(
-            user=self.user, category_group=self.group, name="Groceries"
+            budget=self.user_budget, category_group=self.group, name="Groceries"
         )
         self.fuel = Category.objects.create(
-            user=self.user, category_group=self.group, name="Fuel"
+            budget=self.user_budget, category_group=self.group, name="Fuel"
         )
         self.month = services.month_floor(date.today())
 
     def _txn(self, amount, category=None, is_income=False, when=None):
         Transaction.objects.create(
-            user=self.user, account=self.account, date=when or self.month,
+            budget=self.user_budget, account=self.account, date=when or self.month,
             amount=Decimal(amount), category=category, is_income=is_income,
         )
 
@@ -38,7 +40,7 @@ class ReportsTests(TestCase):
         self._txn("-60.00", self.groceries)
         self._txn("-40.00", self.groceries)
         self._txn("-25.00", self.fuel)
-        report = services.spending_by_category(self.user, self.month)
+        report = services.spending_by_category(self.user_budget, self.month)
         self.assertEqual(report["total"], Decimal("125.00"))
         # Largest first: Groceries 100, Fuel 25
         self.assertEqual(report["rows"][0]["name"], "Groceries")
@@ -50,12 +52,12 @@ class ReportsTests(TestCase):
         self._txn("-30.00", self.groceries)
         self._txn("2000.00", is_income=True)        # income
         self._txn("15.00", self.groceries)          # a refund (positive)
-        report = services.spending_by_category(self.user, self.month)
+        report = services.spending_by_category(self.user_budget, self.month)
         self.assertEqual(report["total"], Decimal("30.00"))
 
     def test_uncategorised_expense_is_bucketed(self):
         self._txn("-12.00")  # no category, not income
-        report = services.spending_by_category(self.user, self.month)
+        report = services.spending_by_category(self.user_budget, self.month)
         self.assertEqual(report["rows"][0]["name"], "Uncategorised")
         self.assertEqual(report["rows"][0]["spent"], Decimal("12.00"))
 
@@ -63,13 +65,13 @@ class ReportsTests(TestCase):
         self._txn("-30.00", self.groceries)
         self._txn("-20.00", self.fuel)
         self.assertEqual(
-            services.total_spending_for_month(self.user, self.month), Decimal("50.00")
+            services.total_spending_for_month(self.user_budget, self.month), Decimal("50.00")
         )
 
     def test_monthly_trend_window_and_values(self):
         self._txn("1000.00", is_income=True)
         self._txn("-200.00", self.groceries)
-        trend = services.monthly_trend(self.user, 6)
+        trend = services.monthly_trend(self.user_budget, 6)
         self.assertEqual(len(trend), 6)
         current = trend[-1]  # oldest first, so last is this month
         self.assertEqual(current["month"], self.month)
@@ -79,11 +81,11 @@ class ReportsTests(TestCase):
 
     def test_net_worth_includes_starting_and_credit_card_debt(self):
         Account.objects.create(
-            user=self.user, name="Visa", account_type=Account.CREDIT_CARD,
+            budget=self.user_budget, name="Visa", account_type=Account.CREDIT_CARD,
             starting_balance=Decimal("-50.00"),
         )
         self._txn("-30.00", self.groceries)
-        nw = services.net_worth_trend(self.user, 6)[-1]["net_worth"]
+        nw = services.net_worth_trend(self.user_budget, 6)[-1]["net_worth"]
         # 100 (everyday) - 50 (visa) - 30 (spend) = 20
         self.assertEqual(nw, Decimal("20.00"))
 

@@ -56,10 +56,10 @@ def month_difference(from_month: date, to_month: date) -> int:
     return (to_month.year - from_month.year) * 12 + (to_month.month - from_month.month)
 
 
-def get_or_create_budget_month(user, month_start: date) -> BudgetMonth:
+def get_or_create_budget_month(budget, month_start: date) -> BudgetMonth:
     """Fetch (or create) the BudgetMonth row, normalising to day 1."""
     bm, _ = BudgetMonth.objects.get_or_create(
-        user=user, month_start=month_floor(month_start)
+        budget=budget, month_start=month_floor(month_start)
     )
     return bm
 
@@ -67,27 +67,27 @@ def get_or_create_budget_month(user, month_start: date) -> BudgetMonth:
 # --------------------------------------------------------------------------
 # Category figures
 # --------------------------------------------------------------------------
-def category_assigned(user, category, month_start: date) -> Decimal:
+def category_assigned(budget, category, month_start: date) -> Decimal:
     """Money assigned to this category in exactly this month."""
     total = BudgetAssignment.objects.filter(
-        user=user, category=category, budget_month__month_start=month_floor(month_start)
+        budget=budget, category=category, budget_month__month_start=month_floor(month_start)
     ).aggregate(s=Sum("assigned_amount"))["s"]
     return total or ZERO
 
 
-def category_activity(user, category, month_start: date) -> Decimal:
+def category_activity(budget, category, month_start: date) -> Decimal:
     """Sum of transaction amounts for this category within this month.
 
     Expenses are negative, so this is typically negative.
     """
     start = month_floor(month_start)
     total = Transaction.objects.filter(
-        user=user, category=category, date__gte=start, date__lt=next_month_start(start)
+        budget=budget, category=category, date__gte=start, date__lt=next_month_start(start)
     ).aggregate(s=Sum("amount"))["s"]
     return total or ZERO
 
 
-def category_available(user, category, month_start: date) -> Decimal:
+def category_available(budget, category, month_start: date) -> Decimal:
     """Available balance for the category as of the end of `month_start`.
 
     The recursive spec definition
@@ -100,11 +100,11 @@ def category_available(user, category, month_start: date) -> Decimal:
     end = next_month_start(start)
 
     assigned = BudgetAssignment.objects.filter(
-        user=user, category=category, budget_month__month_start__lte=start
+        budget=budget, category=category, budget_month__month_start__lte=start
     ).aggregate(s=Sum("assigned_amount"))["s"] or ZERO
 
     activity = Transaction.objects.filter(
-        user=user, category=category, date__lt=end
+        budget=budget, category=category, date__lt=end
     ).aggregate(s=Sum("amount"))["s"] or ZERO
 
     return assigned + activity
@@ -113,7 +113,7 @@ def category_available(user, category, month_start: date) -> Decimal:
 # --------------------------------------------------------------------------
 # Cash / to-be-assigned
 # --------------------------------------------------------------------------
-def total_cash_available(user) -> Decimal:
+def total_cash_available(budget) -> Decimal:
     """Sum of active account balances.
 
     Assumption (documented for MVP): credit-card accounts are excluded because
@@ -122,7 +122,7 @@ def total_cash_available(user) -> Decimal:
     """
     total = ZERO
     accounts = (
-        Account.objects.filter(user=user, is_active=True)
+        Account.objects.filter(budget=budget, is_active=True)
         .exclude(account_type=Account.CREDIT_CARD)
     )
     for account in accounts:
@@ -161,7 +161,7 @@ def reconcile_account(account, statement_balance: Decimal, on_date: date) -> dic
     adjustment = None
     if difference != ZERO:
         adjustment = Transaction.objects.create(
-            user=account.user,
+            budget=account.budget,
             account=account,
             date=on_date,
             payee="Reconciliation adjustment",
@@ -178,28 +178,28 @@ def reconcile_account(account, statement_balance: Decimal, on_date: date) -> dic
     return {"adjustment": adjustment, "difference": difference, "locked": locked}
 
 
-def total_available_in_categories(user, month_start: date) -> Decimal:
+def total_available_in_categories(budget, month_start: date) -> Decimal:
     """Sum of available balances across all active, non-hidden categories."""
     total = ZERO
-    categories = Category.objects.filter(user=user, is_active=True, is_hidden=False)
+    categories = Category.objects.filter(budget=budget, is_active=True, is_hidden=False)
     for category in categories:
-        total += category_available(user, category, month_start)
+        total += category_available(budget, category, month_start)
     return total
 
 
-def to_be_assigned(user, month_start: date) -> Decimal:
+def to_be_assigned(budget, month_start: date) -> Decimal:
     """Cash not yet assigned to any category (MVP definition from the spec).
 
     Also surfaced in the UI as "Ready to Assign".
     """
-    return total_cash_available(user) - total_available_in_categories(user, month_start)
+    return total_cash_available(budget) - total_available_in_categories(budget, month_start)
 
 
-def income_for_month(user, month_start: date) -> Decimal:
+def income_for_month(budget, month_start: date) -> Decimal:
     """Sum of transactions explicitly marked as income within the month."""
     start = month_floor(month_start)
     total = Transaction.objects.filter(
-        user=user, is_income=True, date__gte=start, date__lt=next_month_start(start)
+        budget=budget, is_income=True, date__gte=start, date__lt=next_month_start(start)
     ).aggregate(s=Sum("amount"))["s"]
     return total or ZERO
 
@@ -280,11 +280,11 @@ def goal_status(goal, available, target, month_start) -> str:
     return "On track"
 
 
-def build_category_row(user, category, month_start: date) -> dict:
+def build_category_row(budget, category, month_start: date) -> dict:
     """All figures the budget table needs for one category."""
-    assigned = category_assigned(user, category, month_start)
-    activity = category_activity(user, category, month_start)
-    available = category_available(user, category, month_start)
+    assigned = category_assigned(budget, category, month_start)
+    activity = category_activity(budget, category, month_start)
+    available = category_available(budget, category, month_start)
     goal = active_goal_for(category)
 
     target = goal.target_amount if goal else ZERO
@@ -305,7 +305,7 @@ def build_category_row(user, category, month_start: date) -> dict:
     }
 
 
-def category_history(user, category, num_months: int = 6) -> list[dict]:
+def category_history(budget, category, num_months: int = 6) -> list[dict]:
     """Assigned / activity / available for a category over recent months."""
     base = month_floor(date.today())
     out = []
@@ -314,15 +314,15 @@ def category_history(user, category, num_months: int = 6) -> list[dict]:
         out.append(
             {
                 "month": m,
-                "assigned": category_assigned(user, category, m),
-                "activity": category_activity(user, category, m),
-                "available": category_available(user, category, m),
+                "assigned": category_assigned(budget, category, m),
+                "activity": category_activity(budget, category, m),
+                "available": category_available(budget, category, m),
             }
         )
     return out
 
 
-def fund_category(user, category, month_start: date) -> Decimal:
+def fund_category(budget, category, month_start: date) -> Decimal:
     """Assign whatever is still needed this month to reach the category's goal.
 
     `needed_this_month` is computed relative to the category's current available
@@ -330,14 +330,14 @@ def fund_category(user, category, month_start: date) -> Decimal:
     *add* it to the existing assignment rather than overwrite it. Returns the
     amount added (0 if there is no goal or nothing is needed).
     """
-    row = build_category_row(user, category, month_start)
+    row = build_category_row(budget, category, month_start)
     needed = row["needed_this_month"]
     if needed <= ZERO:
         return ZERO
 
-    budget_month = get_or_create_budget_month(user, month_start)
+    budget_month = get_or_create_budget_month(budget, month_start)
     assignment, _ = BudgetAssignment.objects.get_or_create(
-        user=user, budget_month=budget_month, category=category
+        budget=budget, budget_month=budget_month, category=category
     )
     assignment.assigned_amount = assignment.assigned_amount + needed
     assignment.save(update_fields=["assigned_amount", "updated_at"])
@@ -345,7 +345,7 @@ def fund_category(user, category, month_start: date) -> Decimal:
 
 
 def move_between_categories(
-    user, month_start: date, from_category, to_category, amount: Decimal
+    budget, month_start: date, from_category, to_category, amount: Decimal
 ) -> None:
     """Move `amount` of assigned money from one category to another in a month.
 
@@ -356,15 +356,15 @@ def move_between_categories(
     the two categories' available balances shift. Callers must have already
     confirmed ownership of both categories.
     """
-    budget_month = get_or_create_budget_month(user, month_start)
+    budget_month = get_or_create_budget_month(budget, month_start)
     source, _ = BudgetAssignment.objects.get_or_create(
-        user=user, budget_month=budget_month, category=from_category
+        budget=budget, budget_month=budget_month, category=from_category
     )
     source.assigned_amount = source.assigned_amount - amount
     source.save(update_fields=["assigned_amount", "updated_at"])
 
     destination, _ = BudgetAssignment.objects.get_or_create(
-        user=user, budget_month=budget_month, category=to_category
+        budget=budget, budget_month=budget_month, category=to_category
     )
     destination.assigned_amount = destination.assigned_amount + amount
     destination.save(update_fields=["assigned_amount", "updated_at"])
@@ -373,30 +373,30 @@ def move_between_categories(
 # --------------------------------------------------------------------------
 # Scenario planner (what-if affordability, read-only over the real budget)
 # --------------------------------------------------------------------------
-def avg_monthly_income(user, months: int = 3) -> Decimal:
+def avg_monthly_income(budget, months: int = 3) -> Decimal:
     """Average monthly income over the last `months` months."""
     base = month_floor(date.today())
     total = sum(
-        (income_for_month(user, add_months(base, -i)) for i in range(months)), ZERO
+        (income_for_month(budget, add_months(base, -i)) for i in range(months)), ZERO
     )
     return (total / months).quantize(CENTS)
 
 
-def avg_monthly_spending(user, months: int = 3) -> Decimal:
+def avg_monthly_spending(budget, months: int = 3) -> Decimal:
     """Average monthly spending over the last `months` months."""
     base = month_floor(date.today())
     total = sum(
-        (total_spending_for_month(user, add_months(base, -i)) for i in range(months)), ZERO
+        (total_spending_for_month(budget, add_months(base, -i)) for i in range(months)), ZERO
     )
     return (total / months).quantize(CENTS)
 
 
-def category_avg_monthly_spending(user, category, months: int = 3) -> Decimal:
+def category_avg_monthly_spending(budget, category, months: int = 3) -> Decimal:
     """Average monthly spend for one category (used by 'replaces current')."""
     base = month_floor(date.today())
     total = ZERO
     for i in range(months):
-        activity = category_activity(user, category, add_months(base, -i))
+        activity = category_activity(budget, category, add_months(base, -i))
         if activity < ZERO:
             total += -activity
     return (total / months).quantize(CENTS)
@@ -405,20 +405,20 @@ def category_avg_monthly_spending(user, category, months: int = 3) -> Decimal:
 def scenario_summary(scenario) -> dict:
     """Affordability figures for a scenario vs the real budget today.
 
-    Baselines come from the user's real last-3-month averages (income may be
+    Baselines come from the budget's real last-3-month averages (income may be
     overridden on the scenario). Scenario lines add monthly expenses/income and
     one-off upfront costs. 'replaces_current' expense lines count only the delta
     over the linked category's current average spend, so increases aren't
     double-counted. Nothing here writes to the real budget.
     """
-    user = scenario.user
+    budget = scenario.budget
 
     base_income = (
         scenario.monthly_income_override
         if scenario.monthly_income_override is not None
-        else avg_monthly_income(user)
+        else avg_monthly_income(budget)
     )
-    base_spending = avg_monthly_spending(user)
+    base_spending = avg_monthly_spending(budget)
 
     extra_income = ZERO
     extra_expense = ZERO
@@ -431,7 +431,7 @@ def scenario_summary(scenario) -> dict:
         else:  # expense
             if line.replaces_current and line.category_id:
                 extra_expense += line.amount - category_avg_monthly_spending(
-                    user, line.category
+                    budget, line.category
                 )
             else:
                 extra_expense += line.amount
@@ -464,17 +464,17 @@ def scenario_summary(scenario) -> dict:
 # --------------------------------------------------------------------------
 # Reports (read-only aggregates)
 # --------------------------------------------------------------------------
-def total_spending_for_month(user, month_start: date) -> Decimal:
+def total_spending_for_month(budget, month_start: date) -> Decimal:
     """Magnitude of all non-income expense (negative) transactions in the month."""
     start = month_floor(month_start)
     total = Transaction.objects.filter(
-        user=user, is_income=False, amount__lt=0,
+        budget=budget, is_income=False, amount__lt=0,
         date__gte=start, date__lt=next_month_start(start),
     ).aggregate(s=Sum("amount"))["s"] or ZERO
     return -total
 
 
-def spending_by_category(user, month_start: date) -> dict:
+def spending_by_category(budget, month_start: date) -> dict:
     """Spending grouped by category for one month, largest first.
 
     Counts only non-income outflows (amount < 0). Transactions with no category
@@ -484,7 +484,7 @@ def spending_by_category(user, month_start: date) -> dict:
     start = month_floor(month_start)
     grouped = (
         Transaction.objects.filter(
-            user=user, is_income=False, amount__lt=0,
+            budget=budget, is_income=False, amount__lt=0,
             date__gte=start, date__lt=next_month_start(start),
         )
         .values("category", "category__name")
@@ -509,21 +509,21 @@ def spending_by_category(user, month_start: date) -> dict:
     return {"rows": rows, "total": total_spent}
 
 
-def monthly_trend(user, num_months: int = 6) -> list[dict]:
+def monthly_trend(budget, num_months: int = 6) -> list[dict]:
     """Income, spending and net for the last `num_months` months (oldest first)."""
     base = month_floor(date.today())
     out = []
     for i in range(num_months - 1, -1, -1):
         m = add_months(base, -i)
-        income = income_for_month(user, m)
-        spending = total_spending_for_month(user, m)
+        income = income_for_month(budget, m)
+        spending = total_spending_for_month(budget, m)
         out.append(
             {"month": m, "income": income, "spending": spending, "net": income - spending}
         )
     return out
 
 
-def net_worth_trend(user, num_months: int = 6) -> list[dict]:
+def net_worth_trend(budget, num_months: int = 6) -> list[dict]:
     """End-of-month net worth for the last `num_months` months (oldest first).
 
     Net worth includes every account (credit-card balances count as the debt
@@ -531,7 +531,7 @@ def net_worth_trend(user, num_months: int = 6) -> list[dict]:
     on or before the end of each month — database-neutral, no SQLite date funcs.
     """
     starting_total = (
-        Account.objects.filter(user=user).aggregate(s=Sum("starting_balance"))["s"]
+        Account.objects.filter(budget=budget).aggregate(s=Sum("starting_balance"))["s"]
         or ZERO
     )
     base = month_floor(date.today())
@@ -539,17 +539,17 @@ def net_worth_trend(user, num_months: int = 6) -> list[dict]:
     for i in range(num_months - 1, -1, -1):
         m = add_months(base, -i)
         txn_sum = Transaction.objects.filter(
-            user=user, date__lt=next_month_start(m)
+            budget=budget, date__lt=next_month_start(m)
         ).aggregate(s=Sum("amount"))["s"] or ZERO
         out.append({"month": m, "net_worth": starting_total + txn_sum})
     return out
 
 
-def build_budget_groups(user, month_start: date) -> list[dict]:
+def build_budget_groups(budget, month_start: date) -> list[dict]:
     """Grouped category rows for the budget screen, ordered by group/category."""
     groups = []
     qs = (
-        Category.objects.filter(user=user, is_active=True, is_hidden=False)
+        Category.objects.filter(budget=budget, is_active=True, is_hidden=False)
         .select_related("category_group")
         .order_by("category_group__sort_order", "category_group__name", "sort_order", "name")
     )
@@ -560,5 +560,5 @@ def build_budget_groups(user, month_start: date) -> list[dict]:
             current_group = category.category_group
             bucket = {"group": current_group, "rows": []}
             groups.append(bucket)
-        bucket["rows"].append(build_category_row(user, category, month_start))
+        bucket["rows"].append(build_category_row(budget, category, month_start))
     return groups

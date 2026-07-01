@@ -11,18 +11,20 @@ from budget import services
 from budget.models import Account, Transaction
 
 User = get_user_model()
+from budget.models import Budget
 
 
 class AccountBalancesTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="pw")
+        self.user_budget = Budget.objects.create(owner=self.user, is_default=True)
         self.account = Account.objects.create(
-            user=self.user, name="Everyday", starting_balance=Decimal("100.00")
+            budget=self.user_budget, name="Everyday", starting_balance=Decimal("100.00")
         )
 
     def _txn(self, amount, cleared=False):
         return Transaction.objects.create(
-            user=self.user, account=self.account, date=date(2026, 6, 10),
+            budget=self.user_budget, account=self.account, date=date(2026, 6, 10),
             amount=Decimal(amount), cleared=cleared,
         )
 
@@ -38,13 +40,14 @@ class AccountBalancesTests(TestCase):
 class ReconcileTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="pw")
+        self.user_budget = Budget.objects.create(owner=self.user, is_default=True)
         self.account = Account.objects.create(
-            user=self.user, name="Everyday", starting_balance=Decimal("100.00")
+            budget=self.user_budget, name="Everyday", starting_balance=Decimal("100.00")
         )
 
     def _txn(self, amount, cleared=True):
         return Transaction.objects.create(
-            user=self.user, account=self.account, date=date(2026, 6, 10),
+            budget=self.user_budget, account=self.account, date=date(2026, 6, 10),
             amount=Decimal(amount), cleared=cleared,
         )
 
@@ -78,11 +81,12 @@ class ReconcileTests(TestCase):
 class ReconcileViewTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("alice", password="pw")
+        self.user_budget = Budget.objects.create(owner=self.user, is_default=True)
         self.account = Account.objects.create(
-            user=self.user, name="Everyday", starting_balance=Decimal("100.00")
+            budget=self.user_budget, name="Everyday", starting_balance=Decimal("100.00")
         )
         self.txn = Transaction.objects.create(
-            user=self.user, account=self.account, date=date(2026, 6, 10),
+            budget=self.user_budget, account=self.account, date=date(2026, 6, 10),
             amount=Decimal("-40.00"), cleared=False,
         )
         self.client.login(username="alice", password="pw")
@@ -132,7 +136,8 @@ class ReconcileViewTests(TestCase):
 
     def test_cannot_reconcile_other_users_account(self):
         bob = User.objects.create_user("bob", password="pw")
-        bob_acct = Account.objects.create(user=bob, name="Bob")
+        bob_budget = Budget.objects.create(owner=bob, is_default=True)
+        bob_acct = Account.objects.create(budget=bob_budget, name="Bob")
         resp = self.client.post(
             reverse("account_reconcile", args=[bob_acct.pk]),
             {"statement_balance": "0.00"},

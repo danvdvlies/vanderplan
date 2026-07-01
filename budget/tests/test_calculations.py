@@ -17,23 +17,25 @@ from budget.models import (
 )
 
 User = get_user_model()
+from budget.models import Budget
 
 
 class BudgetingMixin:
     def setUp(self):
         self.user = User.objects.create_user("alice", password="x")
+        self.user_budget = Budget.objects.create(owner=self.user, is_default=True)
         self.account = Account.objects.create(
-            user=self.user, name="Everyday", starting_balance=Decimal("0.00")
+            budget=self.user_budget, name="Everyday", starting_balance=Decimal("0.00")
         )
-        self.group = CategoryGroup.objects.create(user=self.user, name="True Expenses")
+        self.group = CategoryGroup.objects.create(budget=self.user_budget, name="True Expenses")
         self.category = Category.objects.create(
-            user=self.user, category_group=self.group, name="Car Registration"
+            budget=self.user_budget, category_group=self.group, name="Car Registration"
         )
 
     def assign(self, month_start, amount):
-        bm = services.get_or_create_budget_month(self.user, month_start)
+        bm = services.get_or_create_budget_month(self.user_budget, month_start)
         BudgetAssignment.objects.create(
-            user=self.user,
+            budget=self.user_budget,
             budget_month=bm,
             category=self.category,
             assigned_amount=Decimal(amount),
@@ -41,7 +43,7 @@ class BudgetingMixin:
 
     def spend(self, on_date, amount):
         Transaction.objects.create(
-            user=self.user,
+            budget=self.user_budget,
             account=self.account,
             date=on_date,
             amount=Decimal(amount),
@@ -54,8 +56,8 @@ class AvailableBalanceTests(BudgetingMixin, TestCase):
         """Case 1: previous month's available carries into the next month."""
         self.assign(date(2026, 1, 1), "100.00")
         # Nothing assigned/spent in Feb -> Feb available == Jan available.
-        jan = services.category_available(self.user, self.category, date(2026, 1, 1))
-        feb = services.category_available(self.user, self.category, date(2026, 2, 1))
+        jan = services.category_available(self.user_budget, self.category, date(2026, 1, 1))
+        feb = services.category_available(self.user_budget, self.category, date(2026, 2, 1))
         self.assertEqual(jan, Decimal("100.00"))
         self.assertEqual(feb, Decimal("100.00"))
 
@@ -63,7 +65,7 @@ class AvailableBalanceTests(BudgetingMixin, TestCase):
         """Case 2: a spending transaction lowers available."""
         self.assign(date(2026, 1, 1), "100.00")
         self.spend(date(2026, 1, 15), "-30.00")
-        available = services.category_available(self.user, self.category, date(2026, 1, 1))
+        available = services.category_available(self.user_budget, self.category, date(2026, 1, 1))
         self.assertEqual(available, Decimal("70.00"))
 
     def test_assigned_increases_available(self):
@@ -71,7 +73,7 @@ class AvailableBalanceTests(BudgetingMixin, TestCase):
         self.assign(date(2026, 1, 1), "50.00")
         self.assign(date(2026, 2, 1), "100.00")
         # Feb: 50 (rolled) + 100 = 150
-        feb = services.category_available(self.user, self.category, date(2026, 2, 1))
+        feb = services.category_available(self.user_budget, self.category, date(2026, 2, 1))
         self.assertEqual(feb, Decimal("150.00"))
 
     def test_spec_rollforward_example(self):
@@ -79,14 +81,14 @@ class AvailableBalanceTests(BudgetingMixin, TestCase):
         self.assign(date(2026, 1, 1), "50.00")
         self.assign(date(2026, 2, 1), "100.00")
         self.spend(date(2026, 2, 10), "-30.00")
-        feb = services.category_available(self.user, self.category, date(2026, 2, 1))
+        feb = services.category_available(self.user_budget, self.category, date(2026, 2, 1))
         self.assertEqual(feb, Decimal("120.00"))
 
 
 class NeededThisMonthTests(BudgetingMixin, TestCase):
     def _goal(self, due, target="220.00", repeat=3):
         return Goal.objects.create(
-            user=self.user,
+            budget=self.user_budget,
             category=self.category,
             target_amount=Decimal(target),
             due_date=due,
@@ -139,7 +141,7 @@ class RepeatingGoalTests(BudgetingMixin, TestCase):
     def test_advance_moves_due_date_by_interval(self):
         """Case 8: advancing adds repeat_interval_months to the due date."""
         goal = Goal.objects.create(
-            user=self.user,
+            budget=self.user_budget,
             category=self.category,
             target_amount=Decimal("220.00"),
             due_date=date(2026, 6, 28),
@@ -157,16 +159,16 @@ class ToBeAssignedTests(BudgetingMixin, TestCase):
     def test_to_be_assigned_reflects_unassigned_cash(self):
         # $300 income, $100 assigned to the category -> $200 to be assigned.
         Transaction.objects.create(
-            user=self.user, account=self.account, date=date(2026, 6, 1),
+            budget=self.user_budget, account=self.account, date=date(2026, 6, 1),
             amount=Decimal("300.00"), category=None,
         )
         self.assign(date(2026, 6, 1), "100.00")
-        tba = services.to_be_assigned(self.user, date(2026, 6, 1))
+        tba = services.to_be_assigned(self.user_budget, date(2026, 6, 1))
         self.assertEqual(tba, Decimal("200.00"))
 
     def test_credit_card_excluded_from_cash(self):
         Account.objects.create(
-            user=self.user, name="Visa", account_type=Account.CREDIT_CARD,
+            budget=self.user_budget, name="Visa", account_type=Account.CREDIT_CARD,
             starting_balance=Decimal("-500.00"),
         )
-        self.assertEqual(services.total_cash_available(self.user), Decimal("0.00"))
+        self.assertEqual(services.total_cash_available(self.user_budget), Decimal("0.00"))

@@ -54,6 +54,28 @@
       <button class="btn btn-link sidebar-toggle" id="sidebarToggle"><i class="bi bi-list"></i></button>
       <div class="navbar-collapse collapse">
         <ul class="navbar-nav ms-auto">
+          {% if active_budget %}
+          <li class="nav-item dropdown me-2">
+            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+              <i class="bi bi-journal-bookmark"></i>
+              <span class="ms-1">{{ active_budget.name }}</span>
+            </a>
+            <div class="dropdown-menu">
+              <h6 class="dropdown-header">Switch budget</h6>
+              {% for b in user_budgets %}
+                <form method="post" action="{% url 'budget_switch' b.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="dropdown-item {% if b.pk == active_budget.pk %}active{% endif %}">
+                    {% if b.pk == active_budget.pk %}<i class="bi bi-check2"></i> {% endif %}{{ b.name }}
+                  </button>
+                </form>
+              {% endfor %}
+              <div class="dropdown-divider"></div>
+              <a class="dropdown-item" href="{% url 'budget_new' %}"><i class="bi bi-plus-lg"></i> New budget</a>
+              <a class="dropdown-item" href="{% url 'budget_list' %}"><i class="bi bi-gear"></i> Manage budgets</a>
+            </div>
+          </li>
+          {% endif %}
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
               <i class="bi bi-person-circle"></i>
