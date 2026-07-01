@@ -87,17 +87,24 @@ username. (4) Defer duplicate-budget and per-budget currency.
 - [x] All tests updated to a budget context + new test_budgets (isolation,
       switching, guards). 107 tests green on SQLite and PostgreSQL.
 
-### Phase B — Sharing, roles & auth hardening
-- [ ] `BudgetMembership(budget, user, role)` — owner / editor / viewer.
-- [ ] Access by membership; viewer = read-only; owner manages members.
-- [ ] Invite by existing username; Members page.
-- [ ] **Folded-in auth/security** (these arrive with real multi-user):
-      - [ ] Self-service password reset + change-password views.
-      - [ ] Email backend (SMTP/provider) for reset links.
-      - [ ] `django-axes` login rate-limiting / lockout (brute-force protection).
-      - [ ] Production checklist: registration closed by default, real
-            SECRET_KEY, HTTPS enforced (already wired), optional 2FA.
+### Phase B — Sharing, roles & auth hardening — DONE
+- [x] `BudgetMembership(budget, user, role)` — owner / editor / viewer
+      (migration 0009; a post_save signal grants the owner a membership; existing
+      budgets backfilled).
+- [x] Access by membership (middleware resolves role + `can_edit`/`is_owner`);
+      viewer = read-only, enforced server-side by `edit_required` on every
+      mutating view; owner-only member management via `owner_required`.
+- [x] Members page: invite by existing username, change role, remove; top-bar
+      switcher lists all budgets you can access; read-only badge for viewers.
+- [x] Auth hardening:
+      - [x] Self-service password reset (email link) + change-password views.
+      - [x] Email backend (console in dev, SMTP via env in prod).
+      - [x] `django-axes` login lockout (5 failures → 429), verified live.
+      - [x] Production checklist documented (registration closed, SECRET_KEY,
+            HTTPS already wired). 2FA remains optional/future.
 
 ---
 
-Scenario planner shipped; Phase A of multiple-budgets is in progress.
+Both phases of multiple-budgets shipped. 120 tests green on SQLite and
+PostgreSQL. Remaining optional ideas: reconciliation history model, 2FA,
+credit-card handling, recurring transactions.

@@ -9,10 +9,12 @@ def feature_flags(request):
 
 
 def budgets(request):
-    """Active budget + the user's budget list, for the top-bar switcher."""
+    """Active budget + the budgets the user can access, for the top-bar switcher."""
     if not request.user.is_authenticated:
         return {}
     return {
         "active_budget": getattr(request, "budget", None),
-        "user_budgets": Budget.objects.filter(owner=request.user),
+        "user_budgets": Budget.objects.filter(
+            memberships__user=request.user
+        ).distinct(),
     }

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Members{% endblock %}
+{% block heading %}Members · {{ active_budget.name }}{% endblock %}
+
+{% block content %}
+<div class="card mb-3"><div class="card-body">
+  <p class="text-muted mb-0">
+    Share this budget with family. <strong>Editors</strong> can change everything;
+    <strong>viewers</strong> can only look. Only the owner can manage members.
+    To give someone their own separate budget instead, they can register and you
+    can join theirs as a viewer.
+  </p>
+</div></div>
+
+<div class="card"><div class="card-body">
+  <table class="table align-middle mb-0">
+    <thead><tr><th>User</th><th>Role</th>{% if request.is_owner %}<th></th>{% endif %}</tr></thead>
+    <tbody>
+    {% for m in memberships %}
+      <tr>
+        <td>{{ m.user.get_username }}{% if m.user == request.user %} <span class="text-muted small">(you)</span>{% endif %}</td>
+        <td>
+          {% if m.role == 'owner' %}<span class="badge bg-primary">Owner</span>
+          {% elif m.role == 'editor' %}<span class="badge bg-success">Editor</span>
+          {% else %}<span class="badge bg-secondary">Viewer</span>{% endif %}
+        </td>
+        {% if request.is_owner %}
+        <td class="text-end" style="white-space:nowrap;">
+          {% if m.role != 'owner' %}
+          <form method="post" action="{% url 'member_role' m.pk %}" class="d-inline">
+            {% csrf_token %}
+            <select name="role" class="form-select form-select-sm d-inline-block" style="width:auto;" onchange="this.form.submit()">
+              <option value="editor" {% if m.role == 'editor' %}selected{% endif %}>Editor</option>
+              <option value="viewer" {% if m.role == 'viewer' %}selected{% endif %}>Viewer</option>
+            </select>
+          </form>
+          <form method="post" action="{% url 'member_remove' m.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-x-lg"></i> Remove</button>
+          </form>
+          {% endif %}
+        </td>
+        {% endif %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+{% if request.is_owner %}
+<div class="card mt-3"><div class="card-body">
+  <h2 class="h6 mb-3">Add a member</h2>
+  <form method="post" action="{% url 'member_add' %}" class="row g-2 align-items-end">
+    {% csrf_token %}
+    <div class="col-md-4">
+      <label class="form-label small">Username</label>
+      <input type="text" name="username" class="form-control" placeholder="existing username" required>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small">Role</label>
+      <select name="role" class="form-select">
+        <option value="editor">Editor</option>
+        <option value="viewer">Viewer</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-primary" type="submit">Add</button>
+    </div>
+  </form>
+</div></div>
+{% endif %}
+{% endblock %}

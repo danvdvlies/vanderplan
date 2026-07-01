@@ -10,6 +10,8 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 # Two decimal places, room for large balances. Shared by all money fields.
 MONEY = dict(max_digits=12, decimal_places=2)
@@ -45,6 +47,59 @@ class Budget(TimeStampedModel):
 
     def __str__(self):
         return self.name
+
+
+class BudgetMembership(TimeStampedModel):
+    """Which users can access a budget, and with what role.
+
+    owner  — full access + manage members + rename/delete the budget
+    editor — full access to the budgeting data (no member/budget management)
+    viewer — read-only
+    """
+
+    OWNER = "owner"
+    EDITOR = "editor"
+    VIEWER = "viewer"
+    ROLE_CHOICES = [(OWNER, "Owner"), (EDITOR, "Editor"), (VIEWER, "Viewer")]
+
+    budget = models.ForeignKey(
+        Budget, on_delete=models.CASCADE, related_name="memberships"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="budget_memberships"
+    )
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default=EDITOR)
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="+",
+    )
+
+    class Meta:
+        ordering = ["role", "user__username"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["budget", "user"], name="unique_budget_member"
+            )
+        ]
+        indexes = [models.Index(fields=["user"])]
+
+    def __str__(self):
+        return f"{self.user} / {self.budget} ({self.role})"
+
+    @property
+    def can_edit(self):
+        return self.role in (self.OWNER, self.EDITOR)
+
+
+@receiver(post_save, sender=Budget)
+def _ensure_owner_membership(sender, instance, created, **kwargs):
+    """Every new budget grants its owner an owner-role membership."""
+    if created:
+        BudgetMembership.objects.get_or_create(
+            budget=instance,
+            user=instance.owner,
+            defaults={"role": BudgetMembership.OWNER},
+        )
 
 
 class Account(TimeStampedModel):

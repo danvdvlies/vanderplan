@@ -5,12 +5,16 @@ Configuration is environment-driven so the same code runs on SQLite locally
 and PostgreSQL in production. Nothing database-specific lives outside DATABASES.
 """
 
+import sys
 from pathlib import Path
 
 import dj_database_url
 from decouple import Csv, config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# True while running the test suite (used to disable brute-force lockout).
+TESTING = "test" in sys.argv
 
 # --- Core security settings (environment-driven) ---------------------------
 SECRET_KEY = config("SECRET_KEY", default="dev-insecure-change-me")
@@ -26,6 +30,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.humanize",
+    "axes",
     "budget",
 ]
 
@@ -39,7 +44,34 @@ MIDDLEWARE = [
     "budget.middleware.ActiveBudgetMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # AxesMiddleware must be last so it sees the final auth outcome.
+    "axes.middleware.AxesMiddleware",
 ]
+
+# --- Authentication backends (axes wraps the default) ----------------------
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesStandaloneBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# --- Brute-force protection (django-axes) ----------------------------------
+AXES_ENABLED = config("AXES_ENABLED", default=not TESTING, cast=bool)
+AXES_FAILURE_LIMIT = config("AXES_FAILURE_LIMIT", default=5, cast=int)
+AXES_COOLOFF_TIME = 1  # hours locked out after too many failures
+AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
+AXES_RESET_ON_SUCCESS = True
+
+# --- Email (password-reset links) ------------------------------------------
+# Console backend prints emails to the terminal in dev; set SMTP vars in prod.
+EMAIL_BACKEND = config(
+    "EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = config("EMAIL_HOST", default="")
+EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="Vanderplan <noreply@example.com>")
 
 ROOT_URLCONF = "config.urls"
 

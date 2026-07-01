@@ -99,9 +99,13 @@ Beyond the core MVP the app also includes: one-click Fund / Fund-all,
 move-money-between-categories, explicit income & "Ready to Assign", a Reports
 screen (spending, income-vs-spending, net worth), self-service registration,
 category drill-down, CSV import/export, statement reconciliation with
-cleared/working balances and locked reconciled transactions, and a **Scenario
-planner** for modelling big "what if" affordability decisions (new place, car)
-on top of — but without touching — the real budget. See `PLAN.md`.
+cleared/working balances and locked reconciled transactions, a **Scenario
+planner** for modelling big "what if" affordability decisions, **multiple
+budgets** per user with a top-bar switcher, and **budget sharing** — invite
+family by username as editor (full access) or viewer (read-only), so you can
+run a shared household budget and/or give each child their own. Login is
+protected against brute force (django-axes) with self-service password reset.
+See `PLAN.md`.
 
 ## Tests
 

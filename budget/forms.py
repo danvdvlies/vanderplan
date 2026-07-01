@@ -3,8 +3,29 @@ are scoped to the active budget in __init__ so a user can never attach their
 data to another budget's records."""
 
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import (
+    PasswordChangeForm,
+    SetPasswordForm,
+    UserCreationForm,
+)
 from django.contrib.auth.models import User
+
+
+class _BootstrapAuthMixin:
+    """Adds the Bootstrap form-control class to auth form fields."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.setdefault("class", "form-control")
+
+
+class StyledSetPasswordForm(_BootstrapAuthMixin, SetPasswordForm):
+    pass
+
+
+class StyledPasswordChangeForm(_BootstrapAuthMixin, PasswordChangeForm):
+    pass
 
 from .models import (
     Account,

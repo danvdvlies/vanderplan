@@ -12,7 +12,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import get_user_model, login
 from django.contrib.auth.decorators import login_required
 from django.db import transaction as db_transaction
 from django.http import HttpResponse
@@ -20,6 +20,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 
 from . import csv_io, services, starter
+from .permissions import edit_required, owner_required
 from .forms import (
     AccountForm,
     BudgetForm,
@@ -37,6 +38,7 @@ from .models import (
     Account,
     Budget,
     BudgetAssignment,
+    BudgetMembership,
     Category,
     CategoryGroup,
     Goal,
@@ -89,7 +91,8 @@ def register(request):
         user = form.save()
         budget = Budget.objects.create(owner=user, name="My Budget", is_default=True)
         starter.create_starter_categories(budget)
-        login(request, user)
+        # Explicit backend required now that django-axes adds a second backend.
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
         messages.success(request, "Welcome! Your starter budget is ready.")
         return redirect("dashboard")
     return render(request, "registration/register.html", {"form": form})
@@ -113,7 +116,8 @@ def budget_list(request):
 
 @login_required
 def budget_switch(request, pk):
-    budget = _owned_budget(request, pk)
+    # Any budget the user is a member of (owned or shared).
+    budget = get_object_or_404(Budget, memberships__user=request.user, pk=pk)
     request.session["active_budget_id"] = budget.pk
     messages.success(request, f"Switched to “{budget.name}”.")
     return redirect("dashboard")
@@ -171,6 +175,67 @@ def budget_delete(request, pk):
         "budget/confirm_delete.html",
         {"object": budget, "title": "Delete Budget", "cancel_url": "budget_list"},
     )
+
+
+# --------------------------------------------------------------------------
+# Members (share the active budget)
+# --------------------------------------------------------------------------
+@login_required
+def members(request):
+    return render(
+        request,
+        "budget/members.html",
+        {"memberships": request.budget.memberships.select_related("user")},
+    )
+
+
+@login_required
+@owner_required
+def member_add(request):
+    if request.method == "POST":
+        username = request.POST.get("username", "").strip()
+        role = request.POST.get("role", BudgetMembership.EDITOR)
+        if role not in (BudgetMembership.EDITOR, BudgetMembership.VIEWER):
+            role = BudgetMembership.EDITOR  # owner can't be granted via invite
+        user = get_user_model().objects.filter(username=username).first()
+        if user is None:
+            messages.error(request, f"No user named “{username}”.")
+        elif BudgetMembership.objects.filter(budget=request.budget, user=user).exists():
+            messages.error(request, f"{username} is already a member.")
+        else:
+            BudgetMembership.objects.create(
+                budget=request.budget, user=user, role=role, invited_by=request.user
+            )
+            messages.success(request, f"Added {username} as {role}.")
+    return redirect("members")
+
+
+@login_required
+@owner_required
+def member_role(request, pk):
+    membership = get_object_or_404(BudgetMembership, budget=request.budget, pk=pk)
+    if request.method == "POST":
+        role = request.POST.get("role")
+        if membership.role == BudgetMembership.OWNER:
+            messages.error(request, "You can't change the owner's role.")
+        elif role in (BudgetMembership.EDITOR, BudgetMembership.VIEWER):
+            membership.role = role
+            membership.save(update_fields=["role", "updated_at"])
+            messages.success(request, "Role updated.")
+    return redirect("members")
+
+
+@login_required
+@owner_required
+def member_remove(request, pk):
+    membership = get_object_or_404(BudgetMembership, budget=request.budget, pk=pk)
+    if request.method == "POST":
+        if membership.role == BudgetMembership.OWNER:
+            messages.error(request, "You can't remove the owner.")
+        else:
+            membership.delete()
+            messages.success(request, "Member removed.")
+    return redirect("members")
 
 
 # --------------------------------------------------------------------------
@@ -240,6 +305,7 @@ def budget_month(request):
 
 
 @login_required
+@edit_required
 def budget_assign(request):
     """Set the assigned amount for one category in one month."""
     if request.method != "POST":
@@ -264,6 +330,7 @@ def budget_assign(request):
 
 
 @login_required
+@edit_required
 def budget_move(request):
     """Move assigned money from one category to another within a month."""
     month_start = _parse_month(request)
@@ -295,6 +362,7 @@ def budget_move(request):
 
 
 @login_required
+@edit_required
 def budget_fund(request):
     """One-click: assign the still-needed amount to a single category."""
     if request.method != "POST":
@@ -310,6 +378,7 @@ def budget_fund(request):
 
 
 @login_required
+@edit_required
 def budget_fund_all(request):
     """One-click: fund every category that is still short this month."""
     if request.method != "POST":
@@ -360,6 +429,7 @@ def scenario_detail(request, pk):
 
 
 @login_required
+@edit_required
 def scenario_create(request):
     form = ScenarioForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -372,6 +442,7 @@ def scenario_create(request):
 
 
 @login_required
+@edit_required
 def scenario_edit(request, pk):
     scenario = _owned(Scenario, request, pk=pk)
     form = ScenarioForm(request.POST or None, instance=scenario)
@@ -383,6 +454,7 @@ def scenario_edit(request, pk):
 
 
 @login_required
+@edit_required
 def scenario_delete(request, pk):
     scenario = _owned(Scenario, request, pk=pk)
     if request.method == "POST":
@@ -397,6 +469,7 @@ def scenario_delete(request, pk):
 
 
 @login_required
+@edit_required
 def scenario_line_create(request, pk):
     scenario = _owned(Scenario, request, pk=pk)
     form = ScenarioLineForm(request.POST or None, budget=request.budget)
@@ -410,6 +483,7 @@ def scenario_line_create(request, pk):
 
 
 @login_required
+@edit_required
 def scenario_line_delete(request, pk):
     line = _owned(ScenarioLine, request, pk=pk)
     scenario_pk = line.scenario_id
@@ -474,6 +548,7 @@ def account_list(request):
 
 
 @login_required
+@edit_required
 def account_create(request):
     form = AccountForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -486,6 +561,7 @@ def account_create(request):
 
 
 @login_required
+@edit_required
 def account_edit(request, pk):
     account = _owned(Account, request, pk=pk)
     form = AccountForm(request.POST or None, instance=account)
@@ -514,6 +590,7 @@ def account_register(request, pk):
 
 
 @login_required
+@edit_required
 def transaction_toggle_cleared(request, pk):
     txn = _owned(Transaction, request, pk=pk)
     if request.method == "POST":
@@ -526,6 +603,7 @@ def transaction_toggle_cleared(request, pk):
 
 
 @login_required
+@edit_required
 def account_reconcile(request, pk):
     account = _owned(Account, request, pk=pk)
     if request.method != "POST":
@@ -560,6 +638,7 @@ def account_reconcile(request, pk):
 
 
 @login_required
+@edit_required
 def account_archive(request, pk):
     account = _owned(Account, request, pk=pk)
     if request.method == "POST":
@@ -585,6 +664,7 @@ def category_list(request):
 
 
 @login_required
+@edit_required
 def group_create(request):
     form = CategoryGroupForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -597,6 +677,7 @@ def group_create(request):
 
 
 @login_required
+@edit_required
 def group_edit(request, pk):
     group = _owned(CategoryGroup, request, pk=pk)
     form = CategoryGroupForm(request.POST or None, instance=group)
@@ -608,6 +689,7 @@ def group_edit(request, pk):
 
 
 @login_required
+@edit_required
 def category_create(request):
     form = CategoryForm(request.POST or None, budget=request.budget)
     if request.method == "POST" and form.is_valid():
@@ -620,6 +702,7 @@ def category_create(request):
 
 
 @login_required
+@edit_required
 def category_edit(request, pk):
     category = _owned(Category, request, pk=pk)
     form = CategoryForm(request.POST or None, instance=category, budget=request.budget)
@@ -664,6 +747,7 @@ def category_detail(request, pk):
 
 
 @login_required
+@edit_required
 def category_toggle_hidden(request, pk):
     category = _owned(Category, request, pk=pk)
     if request.method == "POST":
@@ -759,6 +843,7 @@ def transaction_export(request):
 
 
 @login_required
+@edit_required
 def transaction_import(request):
     """Import transactions from a CSV: upload -> preview -> commit."""
     MAX_BYTES = 2 * 1024 * 1024
@@ -831,6 +916,7 @@ def transaction_import(request):
 
 
 @login_required
+@edit_required
 def transaction_create(request):
     initial = {}
     if request.GET.get("category"):
@@ -846,6 +932,7 @@ def transaction_create(request):
 
 
 @login_required
+@edit_required
 def income_create(request):
     """Add money to Ready to Assign via a dedicated inflow form."""
     form = IncomeForm(request.POST or None, budget=request.budget)
@@ -866,6 +953,7 @@ def income_create(request):
 
 
 @login_required
+@edit_required
 def transaction_edit(request, pk):
     txn = _owned(Transaction, request, pk=pk)
     if txn.reconciled:
@@ -880,6 +968,7 @@ def transaction_edit(request, pk):
 
 
 @login_required
+@edit_required
 def transaction_delete(request, pk):
     txn = _owned(Transaction, request, pk=pk)
     if txn.reconciled:
@@ -926,6 +1015,7 @@ def goal_list(request):
 
 
 @login_required
+@edit_required
 def goal_create(request):
     form = GoalForm(request.POST or None, budget=request.budget)
     if request.method == "POST" and form.is_valid():
@@ -938,6 +1028,7 @@ def goal_create(request):
 
 
 @login_required
+@edit_required
 def goal_edit(request, pk):
     goal = _owned(Goal, request, pk=pk)
     form = GoalForm(request.POST or None, instance=goal, budget=request.budget)
@@ -949,6 +1040,7 @@ def goal_edit(request, pk):
 
 
 @login_required
+@edit_required
 def goal_deactivate(request, pk):
     goal = _owned(Goal, request, pk=pk)
     if request.method == "POST":
@@ -959,6 +1051,7 @@ def goal_deactivate(request, pk):
 
 
 @login_required
+@edit_required
 def goal_advance(request, pk):
     goal = _owned(Goal, request, pk=pk)
     if request.method == "POST":

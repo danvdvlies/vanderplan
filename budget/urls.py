@@ -11,6 +11,11 @@ urlpatterns = [
     path("budgets/<int:pk>/rename/", views.budget_rename, name="budget_rename"),
     path("budgets/<int:pk>/default/", views.budget_set_default, name="budget_set_default"),
     path("budgets/<int:pk>/delete/", views.budget_delete, name="budget_delete"),
+    # Members (share the active budget)
+    path("members/", views.members, name="members"),
+    path("members/add/", views.member_add, name="member_add"),
+    path("members/<int:pk>/role/", views.member_role, name="member_role"),
+    path("members/<int:pk>/remove/", views.member_remove, name="member_remove"),
     # Budget month
     path("budget/", views.budget_month, name="budget_month"),
     path("budget/assign/", views.budget_assign, name="budget_assign"),
